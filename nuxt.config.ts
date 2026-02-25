@@ -10,7 +10,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      apiBase: ''
+      apiBase: process.env.API_BASE_URL || 'https://google-analytics-api-1.onrender.com'
     }
   }
 })
