@@ -1,11 +1,16 @@
-// https://nuxt.com/docs/api/configuration/nuxt-config
+// nuxt.config.ts
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   modules: ['@nuxt/icon'],
   icon: {
     serverBundle: {
-      collections: ['heroicons'] // ['heroicons', 'mdi', 'fa6', ...]
+      collections: ['heroicons']
+    }
+  },
+  runtimeConfig: {
+    public: {
+      apiBase: ''
     }
   }
 })
