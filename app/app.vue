@@ -324,7 +324,7 @@ export default {
     let revenueChartInstance = null
     let sessionChartInstance = null
 
-    const API_BASE = 'http://localhost:3001'
+    const API_BASE = 'https://google-analytics-api-1.onrender.com'
 
     // ==================== CONSTANTS ====================
     const CITY_COORDINATES = {
