@@ -476,8 +476,8 @@ export default {
     let revenueChartInstance = null
     let sessionChartInstance = null
 
-    // const API_BASE = 'https://google-analytics-api-1.onrender.com'
-    const API_BASE =  'http://localhost:3001'
+    const API_BASE = 'https://google-analytics-api-1.onrender.com'
+    // const API_BASE =  'http://localhost:3001'
     // ==================== CONSTANTS ====================
     const CITY_COORDINATES = {
       'johannesburg': { lat: -26.2041, lng: 28.0473, name: 'Johannesburg' },
