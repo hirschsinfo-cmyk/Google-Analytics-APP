@@ -425,6 +425,33 @@ import Chart from 'chart.js/auto'
 export default {
   name: 'Dashboard',
   setup() {
+    // ==================== CONSTANTS ====================
+    const API_BASE = 'https://google-analytics-api-1.onrender.com'
+    // const API_BASE = 'http://localhost:3001'
+    
+    const CITY_COORDINATES = {
+      'johannesburg': { lat: -26.2041, lng: 28.0473, name: 'Johannesburg' },
+      'cape town': { lat: -33.9249, lng: 18.4241, name: 'Cape Town' },
+      'durban': { lat: -29.8587, lng: 31.0218, name: 'Durban' },
+      'pretoria': { lat: -25.7479, lng: 28.2293, name: 'Pretoria' },
+      'port elizabeth': { lat: -33.9608, lng: 25.6022, name: 'Port Elizabeth' },
+      'bloemfontein': { lat: -29.0852, lng: 26.1596, name: 'Bloemfontein' },
+      'east london': { lat: -33.0153, lng: 27.9116, name: 'East London' },
+      'polokwane': { lat: -23.8962, lng: 29.4486, name: 'Polokwane' },
+      'nelspruit': { lat: -25.4745, lng: 30.9703, name: 'Mbombela' },
+      'kimberley': { lat: -28.7282, lng: 24.7499, name: 'Kimberley' },
+      'upington': { lat: -28.4478, lng: 21.2561, name: 'Upington' },
+      'george': { lat: -33.9881, lng: 22.4529, name: 'George' }
+    }
+
+    const CHART_COLORS = {
+      primary: 'rgba(59, 130, 246, 0.8)',
+      secondary: 'rgba(156, 163, 175, 0.6)',
+      success: 'rgba(16, 185, 129, 0.8)',
+      danger: 'rgba(239, 68, 68, 0.8)',
+      warning: 'rgba(245, 158, 11, 0.8)'
+    }
+
     // ==================== STATE ====================
     const today = new Date().toISOString().split('T')[0]
     
@@ -453,7 +480,7 @@ export default {
     const revenueChartView = ref('sideBySide')
     const sessionChartView = ref('sideBySide')
 
-    // Data containers (now storing both periods)
+    // Data containers
     const locationSessionData = ref([])
     const locationSessionComparison = ref([])
     const locationRevenueData = ref([])
@@ -471,51 +498,27 @@ export default {
     // Chart refs
     const revenueChart = ref(null)
     const sessionChart = ref(null)
-
-    // Chart instances
     let revenueChartInstance = null
     let sessionChartInstance = null
-
-    const API_BASE = 'https://google-analytics-api-1.onrender.com'
-    // const API_BASE =  'http://localhost:3001'
-    // ==================== CONSTANTS ====================
-    const CITY_COORDINATES = {
-      'johannesburg': { lat: -26.2041, lng: 28.0473, name: 'Johannesburg' },
-      'cape town': { lat: -33.9249, lng: 18.4241, name: 'Cape Town' },
-      'durban': { lat: -29.8587, lng: 31.0218, name: 'Durban' },
-      'pretoria': { lat: -25.7479, lng: 28.2293, name: 'Pretoria' },
-      'port elizabeth': { lat: -33.9608, lng: 25.6022, name: 'Port Elizabeth' },
-      'bloemfontein': { lat: -29.0852, lng: 26.1596, name: 'Bloemfontein' },
-      'east london': { lat: -33.0153, lng: 27.9116, name: 'East London' },
-      'polokwane': { lat: -23.8962, lng: 29.4486, name: 'Polokwane' },
-      'nelspruit': { lat: -25.4745, lng: 30.9703, name: 'Mbombela' },
-      'kimberley': { lat: -28.7282, lng: 24.7499, name: 'Kimberley' },
-      'upington': { lat: -28.4478, lng: 21.2561, name: 'Upington' },
-      'george': { lat: -33.9881, lng: 22.4529, name: 'George' }
-    }
 
     // ==================== UTILITIES ====================
     const formatters = {
       zar: (value) => new Intl.NumberFormat('en-ZA', { 
-        style: 'currency', 
-        currency: 'ZAR', 
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
+        style: 'currency', currency: 'ZAR', minimumFractionDigits: 0, maximumFractionDigits: 0
       }).format(value),
       number: (value) => new Intl.NumberFormat('en-ZA').format(value),
       percent: (value) => new Intl.NumberFormat('en-ZA', { 
-        style: 'percent', 
-        minimumFractionDigits: 1 
+        style: 'percent', minimumFractionDigits: 1 
       }).format(value / 100),
       truncate: (str, maxLength) => !str ? str : str.length > maxLength ? str.substring(0, maxLength) + '...' : str,
       delta: (value) => {
         if (value === null || value === undefined || isNaN(value)) return '—'
         const sign = value > 0 ? '+' : ''
-        return `${sign}${value.toFixed(1)}%`
+        return `${sign}${Math.abs(value).toFixed(1)}%`
       }
     }
 
-    function getChannelClass(channel) {
+    const getChannelClass = (channel) => {
       if (!channel) return 'other'
       const channelLower = channel.toLowerCase()
       if (channelLower.includes('organic')) return 'organic'
@@ -526,27 +529,39 @@ export default {
       return 'other'
     }
 
-    function getDeltaClass(delta) {
+    const getDeltaClass = (delta) => {
       if (delta > 0) return 'positive'
       if (delta < 0) return 'negative'
       return 'neutral'
     }
 
-    function formatDelta(delta) {
-      return formatters.delta(delta)
-    }
+    const formatDelta = (delta) => formatters.delta(delta)
 
-    // Helper to calculate delta between two values
-    function calculateDelta(current, previous) {
+    const calculateDelta = (current, previous) => {
       if (!previous || previous === 0) return null
       return ((current - previous) / previous) * 100
+    }
+
+    const getValueByMetric = (item, metric, isComparison = false) => {
+      if (!item) return 0
+      
+      const metricMap = {
+        revenue: isComparison ? item.purchaseRevenue : item.purchaseRevenue,
+        transactions: item.transactions,
+        conversions: item.conversions,
+        sessions: item.sessions,
+        activeUsers: item.activeUsers,
+        newUsers: item.newUsers,
+        conversionRate: item.sessionConversionRate
+      }
+      
+      return metricMap[metric] || 0
     }
 
     // ==================== COMPUTED ====================
     const saCities = computed(() => {
       const cities = []
       
-      // Merge session and revenue data for cities
       locationRevenueData.value.forEach(revenueItem => {
         if (!revenueItem.country?.toLowerCase().includes('south africa') && 
             !Object.keys(CITY_COORDINATES).some(city => revenueItem.city?.toLowerCase().includes(city))) {
@@ -557,43 +572,25 @@ export default {
         const coords = cityKey ? CITY_COORDINATES[cityKey] : null
         if (!coords) return
         
-        // Find matching session data
         const sessionItem = locationSessionData.value.find(s => s.city === revenueItem.city)
         const sessionCompare = locationSessionComparison.value.find(s => s.city === revenueItem.city)
         const revenueCompare = locationRevenueComparison.value.find(r => r.city === revenueItem.city)
-        
-        // Current values
-        const currentRevenue = revenueItem.purchaseRevenue || 0
-        const currentTransactions = revenueItem.transactions || 0
-        const currentConversions = revenueItem.conversions || 0
-        const currentSessions = sessionItem?.sessions || 0
-        const currentConversionRate = sessionItem?.sessionConversionRate || 0
-        
-        // Comparison values
-        const comparisonRevenue = revenueCompare?.purchaseRevenue || 0
-        const comparisonTransactions = revenueCompare?.transactions || 0
-        const comparisonConversions = revenueCompare?.conversions || 0
-        const comparisonSessions = sessionCompare?.sessions || 0
-        const comparisonConversionRate = sessionCompare?.sessionConversionRate || 0
         
         cities.push({
           name: revenueItem.city || 'Unknown',
           lat: coords.lat,
           lng: coords.lng,
-          // Current values
-          revenue: currentRevenue,
-          transactions: currentTransactions,
-          conversions: currentConversions,
-          sessions: currentSessions,
-          conversionRate: currentConversionRate,
-          // Comparison values
-          revenueComparison: comparisonRevenue,
-          transactionsComparison: comparisonTransactions,
-          conversionsComparison: comparisonConversions,
-          sessionsComparison: comparisonSessions,
-          conversionRateComparison: comparisonConversionRate,
-          // Deltas
-          delta: calculateDelta(currentRevenue, comparisonRevenue)
+          revenue: revenueItem.purchaseRevenue || 0,
+          transactions: revenueItem.transactions || 0,
+          conversions: revenueItem.conversions || 0,
+          sessions: sessionItem?.sessions || 0,
+          conversionRate: sessionItem?.sessionConversionRate || 0,
+          revenueComparison: revenueCompare?.purchaseRevenue || 0,
+          transactionsComparison: revenueCompare?.transactions || 0,
+          conversionsComparison: revenueCompare?.conversions || 0,
+          sessionsComparison: sessionCompare?.sessions || 0,
+          conversionRateComparison: sessionCompare?.sessionConversionRate || 0,
+          delta: calculateDelta(revenueItem.purchaseRevenue || 0, revenueCompare?.purchaseRevenue || 0)
         })
       })
       
@@ -602,88 +599,91 @@ export default {
 
     const kpiData = computed(() => {
       // Current period totals
-      const totalRevenue = locationRevenueData.value.reduce((sum, item) => sum + (item.purchaseRevenue || 0), 0)
-      const totalTransactions = locationRevenueData.value.reduce((sum, item) => sum + (item.transactions || 0), 0)
-      const totalRevenueConversions = locationRevenueData.value.reduce((sum, item) => sum + (item.conversions || 0), 0)
-      const totalSessions = locationSessionData.value.reduce((sum, item) => sum + (item.sessions || 0), 0)
-      const totalSessionConversions = locationSessionData.value.reduce((sum, item) => sum + (item.conversions || 0), 0)
-      const totalActiveUsers = locationSessionData.value.reduce((sum, item) => sum + (item.activeUsers || 0), 0)
+      const totals = {
+        revenue: locationRevenueData.value.reduce((sum, item) => sum + (item.purchaseRevenue || 0), 0),
+        transactions: locationRevenueData.value.reduce((sum, item) => sum + (item.transactions || 0), 0),
+        revenueConversions: locationRevenueData.value.reduce((sum, item) => sum + (item.conversions || 0), 0),
+        sessions: locationSessionData.value.reduce((sum, item) => sum + (item.sessions || 0), 0),
+        sessionConversions: locationSessionData.value.reduce((sum, item) => sum + (item.conversions || 0), 0),
+        activeUsers: locationSessionData.value.reduce((sum, item) => sum + (item.activeUsers || 0), 0)
+      }
       
-      // Use the larger of the two conversion counts (they should be similar)
-      const totalConversions = Math.max(totalRevenueConversions, totalSessionConversions)
-      
+      const totalConversions = Math.max(totals.revenueConversions, totals.sessionConversions)
       const avgConversionRate = locationSessionData.value.length > 0 
         ? locationSessionData.value.reduce((sum, item) => sum + (item.sessionConversionRate || 0), 0) / locationSessionData.value.length
         : 0
 
-      // Comparison period totals (if enabled)
-      let comparisonRevenue = 0
-      let comparisonTransactions = 0
-      let comparisonConversions = 0
-      let comparisonSessions = 0
-      let comparisonConversionRate = 0
+      // Comparison period totals
+      let comparisonTotals = {
+        revenue: 0, transactions: 0, conversions: 0, sessions: 0, conversionRate: 0
+      }
       
       if (enableComparison.value) {
         const compRevenueTotal = locationRevenueComparison.value.reduce((sum, item) => sum + (item.purchaseRevenue || 0), 0)
         const compRevenueConversions = locationRevenueComparison.value.reduce((sum, item) => sum + (item.conversions || 0), 0)
         const compSessionConversions = locationSessionComparison.value.reduce((sum, item) => sum + (item.conversions || 0), 0)
         
-        comparisonRevenue = compRevenueTotal
-        comparisonTransactions = locationRevenueComparison.value.reduce((sum, item) => sum + (item.transactions || 0), 0)
-        comparisonConversions = Math.max(compRevenueConversions, compSessionConversions)
-        comparisonSessions = locationSessionComparison.value.reduce((sum, item) => sum + (item.sessions || 0), 0)
-        comparisonConversionRate = locationSessionComparison.value.length > 0
-          ? locationSessionComparison.value.reduce((sum, item) => sum + (item.sessionConversionRate || 0), 0) / locationSessionComparison.value.length
-          : 0
+        comparisonTotals = {
+          revenue: compRevenueTotal,
+          transactions: locationRevenueComparison.value.reduce((sum, item) => sum + (item.transactions || 0), 0),
+          conversions: Math.max(compRevenueConversions, compSessionConversions),
+          sessions: locationSessionComparison.value.reduce((sum, item) => sum + (item.sessions || 0), 0),
+          conversionRate: locationSessionComparison.value.length > 0
+            ? locationSessionComparison.value.reduce((sum, item) => sum + (item.sessionConversionRate || 0), 0) / locationSessionComparison.value.length
+            : 0
+        }
       }
-      
-      return [
+
+      const kpiConfigs = [
         { 
           label: 'Total Revenue', 
-          value: formatters.zar(totalRevenue), 
-          comparisonValue: enableComparison.value ? formatters.zar(comparisonRevenue) : null,
-          delta: calculateDelta(totalRevenue, comparisonRevenue),
-          trend: 12.5, 
+          value: totals.revenue, 
+          compValue: comparisonTotals.revenue,
+          formatter: formatters.zar, 
           icon: 'trending_up', 
           color: '#10b981' 
         },
         { 
           label: 'Transactions', 
-          value: formatters.number(totalTransactions), 
-          comparisonValue: enableComparison.value ? formatters.number(comparisonTransactions) : null,
-          delta: calculateDelta(totalTransactions, comparisonTransactions),
-          trend: 8.2, 
+          value: totals.transactions, 
+          compValue: comparisonTotals.transactions,
+          formatter: formatters.number, 
           icon: 'shopping_cart', 
           color: '#3b82f6' 
         },
         { 
           label: 'Sessions', 
-          value: formatters.number(totalSessions), 
-          comparisonValue: enableComparison.value ? formatters.number(comparisonSessions) : null,
-          delta: calculateDelta(totalSessions, comparisonSessions),
-          trend: -3.1, 
+          value: totals.sessions, 
+          compValue: comparisonTotals.sessions,
+          formatter: formatters.number, 
           icon: 'visibility', 
           color: '#f59e0b' 
         },
         { 
           label: 'Conversions', 
-          value: formatters.number(totalConversions), 
-          comparisonValue: enableComparison.value ? formatters.number(comparisonConversions) : null,
-          delta: calculateDelta(totalConversions, comparisonConversions),
-          trend: 7.2, 
+          value: totalConversions, 
+          compValue: comparisonTotals.conversions,
+          formatter: formatters.number, 
           icon: 'conversion_path', 
           color: '#8b5cf6' 
         },
         { 
           label: 'Avg. Conv. Rate', 
-          value: formatters.percent(avgConversionRate), 
-          comparisonValue: enableComparison.value ? formatters.percent(comparisonConversionRate) : null,
-          delta: calculateDelta(avgConversionRate, comparisonConversionRate),
-          trend: 5.7, 
+          value: avgConversionRate, 
+          compValue: comparisonTotals.conversionRate,
+          formatter: formatters.percent, 
           icon: 'percent', 
           color: '#ec4899' 
         }
       ]
+
+      return kpiConfigs.map(config => ({
+        ...config,
+        value: config.formatter(config.value),
+        comparisonValue: enableComparison.value ? config.formatter(config.compValue) : null,
+        delta: calculateDelta(config.value, config.compValue),
+        trend: calculateDelta(config.value, config.compValue) || 0
+      }))
     })
 
     const hasData = computed(() => {
@@ -691,16 +691,13 @@ export default {
     })
 
     // ==================== API FUNCTIONS ====================
-    function formatDateForAPI(date) {
-      return date
-    }
+    const formatDateForAPI = (date) => date
 
-    async function fetchData(endpoint) {
+    const fetchData = async (endpoint) => {
       const url = new URL(`${API_BASE}${endpoint}`)
       url.searchParams.append('startDate', formatDateForAPI(dateRange.startDate))
       url.searchParams.append('endDate', formatDateForAPI(dateRange.endDate))
       
-      // Add comparison dates if enabled
       if (enableComparison.value) {
         url.searchParams.append('compareStartDate', formatDateForAPI(comparisonRange.startDate))
         url.searchParams.append('compareEndDate', formatDateForAPI(comparisonRange.endDate))
@@ -711,7 +708,54 @@ export default {
       return await res.json()
     }
 
-    async function fetchAllData() {
+    const processSessionData = (current, comparison) => {
+      return current.map(item => {
+        const comp = comparison.find(c => c.city === item.city && c.country === item.country) || {}
+        return {
+          ...item,
+          sessionsDelta: calculateDelta(item.sessions, comp.sessions),
+          conversionsDelta: calculateDelta(item.conversions, comp.conversions),
+          conversionRateDelta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate),
+          activeUsersDelta: calculateDelta(item.activeUsers, comp.activeUsers),
+          newUsersDelta: calculateDelta(item.newUsers, comp.newUsers)
+        }
+      })
+    }
+
+    const processRevenueData = (current, comparison) => {
+      return current.map(item => {
+        const comp = comparison.find(c => c.city === item.city && c.country === item.country) || {}
+        const currentAOV = item.transactions ? item.purchaseRevenue / item.transactions : 0
+        const comparisonAOV = comp.transactions ? comp.purchaseRevenue / comp.transactions : 0
+        
+        return {
+          ...item,
+          revenueDelta: calculateDelta(item.purchaseRevenue, comp.purchaseRevenue),
+          transactionsDelta: calculateDelta(item.transactions, comp.transactions),
+          conversionsDelta: calculateDelta(item.conversions, comp.conversions),
+          aovDelta: calculateDelta(currentAOV, comparisonAOV)
+        }
+      })
+    }
+
+    const processSourceData = (current, comparison) => {
+      return current.map(item => {
+        const comp = comparison.find(c => 
+          c.channel === item.channel && 
+          c.deviceCategory === item.deviceCategory &&
+          c.campaignName === item.campaignName
+        ) || {}
+        
+        return {
+          ...item,
+          sessionsDelta: calculateDelta(item.sessions, comp.sessions),
+          conversionsDelta: calculateDelta(item.conversions, comp.conversions),
+          conversionRateDelta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate)
+        }
+      })
+    }
+
+    const fetchAllData = async () => {
       loading.value = true
       try {
         const [sessionResponse, revenueResponse, sourceResponse] = await Promise.all([
@@ -720,67 +764,13 @@ export default {
           fetchData('/analytics/conversions-by-source')
         ])
         
-        // Session data
-        locationSessionData.value = sessionResponse.currentPeriod || []
         locationSessionComparison.value = sessionResponse.comparisonPeriod || []
-        
-        // Add deltas to session data
-        locationSessionData.value = locationSessionData.value.map(current => {
-          const comparison = locationSessionComparison.value.find(c => 
-            c.city === current.city && c.country === current.country
-          ) || {}
-          
-          return {
-            ...current,
-            sessionsDelta: calculateDelta(current.sessions, comparison.sessions),
-            conversionsDelta: calculateDelta(current.conversions, comparison.conversions),
-            conversionRateDelta: calculateDelta(current.sessionConversionRate, comparison.sessionConversionRate),
-            activeUsersDelta: calculateDelta(current.activeUsers, comparison.activeUsers),
-            newUsersDelta: calculateDelta(current.newUsers, comparison.newUsers)
-          }
-        })
-        
-        // Revenue data
-        locationRevenueData.value = revenueResponse.currentPeriod || []
         locationRevenueComparison.value = revenueResponse.comparisonPeriod || []
-        
-        // Add deltas to revenue data
-        locationRevenueData.value = locationRevenueData.value.map(current => {
-          const comparison = locationRevenueComparison.value.find(c => 
-            c.city === current.city && c.country === current.country
-          ) || {}
-          
-          const currentAOV = current.transactions ? current.purchaseRevenue / current.transactions : 0
-          const comparisonAOV = comparison.transactions ? comparison.purchaseRevenue / comparison.transactions : 0
-          
-          return {
-            ...current,
-            revenueDelta: calculateDelta(current.purchaseRevenue, comparison.purchaseRevenue),
-            transactionsDelta: calculateDelta(current.transactions, comparison.transactions),
-            conversionsDelta: calculateDelta(current.conversions, comparison.conversions),
-            aovDelta: calculateDelta(currentAOV, comparisonAOV)
-          }
-        })
-        
-        // Source data
-        sourceData.value = sourceResponse.currentPeriod || []
         sourceComparison.value = sourceResponse.comparisonPeriod || []
         
-        // Add deltas to source data
-        sourceData.value = sourceData.value.map(current => {
-          const comparison = sourceComparison.value.find(c => 
-            c.channel === current.channel && 
-            c.deviceCategory === current.deviceCategory &&
-            c.campaignName === current.campaignName
-          ) || {}
-          
-          return {
-            ...current,
-            sessionsDelta: calculateDelta(current.sessions, comparison.sessions),
-            conversionsDelta: calculateDelta(current.conversions, comparison.conversions),
-            conversionRateDelta: calculateDelta(current.sessionConversionRate, comparison.sessionConversionRate)
-          }
-        })
+        locationSessionData.value = processSessionData(sessionResponse.currentPeriod || [], locationSessionComparison.value)
+        locationRevenueData.value = processRevenueData(revenueResponse.currentPeriod || [], locationRevenueComparison.value)
+        sourceData.value = processSourceData(sourceResponse.currentPeriod || [], sourceComparison.value)
         
       } catch (error) {
         console.error('Failed to fetch analytics:', error)
@@ -790,7 +780,6 @@ export default {
         updateRevenueChart()
         updateSessionChart()
         
-        // Refresh map
         if (map) {
           map.remove()
           map = null
@@ -802,50 +791,39 @@ export default {
     }
 
     // ==================== QUICK RANGE FUNCTIONS ====================
-    function applyQuickRange() {
+    const applyQuickRange = () => {
       const end = new Date()
       let start = new Date()
       
-      switch(selectedQuickRange.value) {
-        case '7daysAgo':
-          start.setDate(end.getDate() - 7)
-          // Set comparison to previous 7 days
-          comparisonRange.endDate = new Date(start.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-          comparisonRange.startDate = new Date(start.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-          break
-        case '30daysAgo':
-          start.setDate(end.getDate() - 30)
-          // Set comparison to previous 30 days
-          comparisonRange.endDate = new Date(start.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-          comparisonRange.startDate = new Date(start.getTime() - 31 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-          break
-        case '90daysAgo':
-          start.setDate(end.getDate() - 90)
-          // Set comparison to previous 90 days
-          comparisonRange.endDate = new Date(start.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-          comparisonRange.startDate = new Date(start.getTime() - 91 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-          break
-        case 'thisMonth':
-          start = new Date(end.getFullYear(), end.getMonth(), 1)
-          // Set comparison to previous month
-          comparisonRange.startDate = new Date(end.getFullYear(), end.getMonth() - 1, 1).toISOString().split('T')[0]
-          comparisonRange.endDate = new Date(end.getFullYear(), end.getMonth(), 0).toISOString().split('T')[0]
-          break
-        case 'lastMonth':
-          start = new Date(end.getFullYear(), end.getMonth() - 1, 1)
-          end.setDate(0)
-          // Set comparison to month before last
-          comparisonRange.startDate = new Date(end.getFullYear(), end.getMonth() - 1, 1).toISOString().split('T')[0]
-          comparisonRange.endDate = new Date(end.getFullYear(), end.getMonth(), 0).toISOString().split('T')[0]
-          break
-        case 'thisYear':
-          start = new Date(end.getFullYear(), 0, 1)
-          // Set comparison to previous year
-          comparisonRange.startDate = new Date(end.getFullYear() - 1, 0, 1).toISOString().split('T')[0]
-          comparisonRange.endDate = new Date(end.getFullYear() - 1, 11, 31).toISOString().split('T')[0]
-          break
-        default:
-          return
+      const rangeConfigs = {
+        '7daysAgo': { days: 7, compDays: 8 },
+        '30daysAgo': { days: 30, compDays: 31 },
+        '90daysAgo': { days: 90, compDays: 91 },
+        'thisMonth': { type: 'month' },
+        'lastMonth': { type: 'lastMonth' },
+        'thisYear': { type: 'year' }
+      }
+
+      const config = rangeConfigs[selectedQuickRange.value]
+      if (!config) return
+
+      if (config.days) {
+        start.setDate(end.getDate() - config.days)
+        comparisonRange.endDate = new Date(start.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        comparisonRange.startDate = new Date(start.getTime() - config.compDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      } else if (config.type === 'month') {
+        start = new Date(end.getFullYear(), end.getMonth(), 1)
+        comparisonRange.startDate = new Date(end.getFullYear(), end.getMonth() - 1, 1).toISOString().split('T')[0]
+        comparisonRange.endDate = new Date(end.getFullYear(), end.getMonth(), 0).toISOString().split('T')[0]
+      } else if (config.type === 'lastMonth') {
+        start = new Date(end.getFullYear(), end.getMonth() - 1, 1)
+        end.setDate(0)
+        comparisonRange.startDate = new Date(end.getFullYear(), end.getMonth() - 1, 1).toISOString().split('T')[0]
+        comparisonRange.endDate = new Date(end.getFullYear(), end.getMonth(), 0).toISOString().split('T')[0]
+      } else if (config.type === 'year') {
+        start = new Date(end.getFullYear(), 0, 1)
+        comparisonRange.startDate = new Date(end.getFullYear() - 1, 0, 1).toISOString().split('T')[0]
+        comparisonRange.endDate = new Date(end.getFullYear() - 1, 11, 31).toISOString().split('T')[0]
       }
       
       dateRange.startDate = start.toISOString().split('T')[0]
@@ -854,80 +832,45 @@ export default {
     }
 
     // ==================== EXPORT FUNCTIONS ====================
-    function exportToCSV() {
-      const data = []
-      
-      // Add headers
-      data.push(['Hirsch\'s Conversion Intelligence Report'])
-      data.push([`Main Period: ${dateRange.startDate} to ${dateRange.endDate}`])
-      if (enableComparison.value) {
-        data.push([`Comparison Period: ${comparisonRange.startDate} to ${comparisonRange.endDate}`])
-      }
-      data.push([])
-      
-      // Session data
-      data.push(['Sessions & Users by Location'])
-      data.push(['City', 'Country', 'Sessions', 'Conversions', 'Conversion Rate', 'Active Users', 'New Users'])
-      locationSessionData.value.forEach(item => {
-        const row = [
-          item.city || '—',
-          item.country || '—',
-          item.sessions,
-          item.conversions,
-          (item.sessionConversionRate / 100).toFixed(3),
-          item.activeUsers,
-          item.newUsers
-        ]
-        data.push(row)
-      })
-      
-      data.push([])
-      
-      // Revenue data
-      data.push(['Revenue by Location (ZAR)'])
-      data.push(['City', 'Country', 'Revenue (ZAR)', 'Transactions', 'Conversions', 'Avg Order Value (ZAR)'])
-      locationRevenueData.value.forEach(item => {
-        data.push([
-          item.city || '—',
-          item.country || '—',
-          item.purchaseRevenue,
-          item.transactions,
-          item.conversions,
+    const exportToCSV = () => {
+      const data = [
+        ['Hirsch\'s Conversion Intelligence Report'],
+        [`Main Period: ${dateRange.startDate} to ${dateRange.endDate}`],
+        ...(enableComparison.value ? [[`Comparison Period: ${comparisonRange.startDate} to ${comparisonRange.endDate}`]] : []),
+        [],
+        ['Sessions & Users by Location'],
+        ['City', 'Country', 'Sessions', 'Conversions', 'Conversion Rate', 'Active Users', 'New Users'],
+        ...locationSessionData.value.map(item => [
+          item.city || '—', item.country || '—', item.sessions, item.conversions,
+          (item.sessionConversionRate / 100).toFixed(3), item.activeUsers, item.newUsers
+        ]),
+        [],
+        ['Revenue by Location (ZAR)'],
+        ['City', 'Country', 'Revenue (ZAR)', 'Transactions', 'Conversions', 'Avg Order Value (ZAR)'],
+        ...locationRevenueData.value.map(item => [
+          item.city || '—', item.country || '—', item.purchaseRevenue, item.transactions, item.conversions,
           item.transactions ? (item.purchaseRevenue / item.transactions).toFixed(2) : 0
+        ]),
+        [],
+        ['Source Analysis'],
+        ['Channel', 'Device', 'Campaign', 'Sessions', 'Conversions', 'Conversion Rate'],
+        ...sourceData.value.map(item => [
+          item.channel || 'Other', item.deviceCategory || '—', item.campaignName || '—',
+          item.sessions, item.conversions, (item.sessionConversionRate / 100).toFixed(3)
         ])
-      })
+      ]
       
-      data.push([])
-      
-      // Source data
-      data.push(['Source Analysis'])
-      data.push(['Channel', 'Device', 'Campaign', 'Sessions', 'Conversions', 'Conversion Rate'])
-      sourceData.value.forEach(item => {
-        data.push([
-          item.channel || 'Other',
-          item.deviceCategory || '—',
-          item.campaignName || '—',
-          item.sessions,
-          item.conversions,
-          (item.sessionConversionRate / 100).toFixed(3)
-        ])
-      })
-      
-      // Convert to CSV
       const csvContent = data.map(row => row.join(',')).join('\n')
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', `hirsch_report_${dateRange.startDate}_to_${dateRange.endDate}.csv`)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
+      link.href = URL.createObjectURL(blob)
+      link.download = `hirsch_report_${dateRange.startDate}_to_${dateRange.endDate}.csv`
       link.click()
-      document.body.removeChild(link)
+      URL.revokeObjectURL(link.href)
     }
 
     // ==================== MAP FUNCTIONS ====================
-    async function initMap() {
+    const initMap = async () => {
       if (!mapElement.value) return
       
       try {
@@ -943,8 +886,7 @@ export default {
         
         map = L.map(mapElement.value).setView([-28.5, 24.5], 5)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-          maxZoom: 18
+          attribution: '© OpenStreetMap contributors', maxZoom: 18
         }).addTo(map)
         
         map.whenReady(() => setTimeout(() => map.invalidateSize(), 100))
@@ -954,16 +896,9 @@ export default {
       }
     }
 
-    function getCityMetricValue(city, view = mapView.value) {
+    const getCityMetricValue = (city, view = mapView.value) => {
       if (view === 'current') {
-        const metricMap = { 
-          revenue: city.revenue, 
-          transactions: city.transactions, 
-          sessions: city.sessions, 
-          conversionRate: city.conversionRate,
-          conversions: city.conversions
-        }
-        return metricMap[mapMetric.value] || city.revenue
+        return city[mapMetric.value] || city.revenue
       } else if (view === 'comparison') {
         const metricMap = { 
           revenue: city.revenueComparison, 
@@ -973,28 +908,25 @@ export default {
           conversions: city.conversionsComparison
         }
         return metricMap[mapMetric.value] || city.revenueComparison
-      } else {
-        // Delta view
-        return city.delta || 0
       }
+      return city.delta || 0
     }
 
-    function getMetricColor(value, maxValue, isDelta = false) {
+    const getMetricColor = (value, maxValue, isDelta = false) => {
       if (isDelta) {
-        if (value > 20) return '#10b981'  // Strong growth
-        if (value > 5) return '#84cc16'   // Moderate growth
-        if (value > -5) return '#f59e0b'  // Stable
-        if (value > -20) return '#f97316' // Moderate decline
-        return '#ef4444'                   // Strong decline
+        if (value > 20) return '#10b981'
+        if (value > 5) return '#84cc16'
+        if (value > -5) return '#f59e0b'
+        if (value > -20) return '#f97316'
+        return '#ef4444'
       }
-      
       const normalized = value / maxValue
       if (normalized > 0.66) return '#ef4444'
       if (normalized > 0.33) return '#f59e0b'
       return '#10b981'
     }
 
-    function updateMapMarkers() {
+    const updateMapMarkers = () => {
       if (!map || !L || !saCities.value.length) return
       
       markers.forEach(marker => map.removeLayer(marker))
@@ -1031,21 +963,17 @@ export default {
       })
     }
 
-    function getCityColor(city) {
+    const getCityColor = (city) => {
       const isDelta = mapView.value === 'delta'
       const values = saCities.value.map(c => getCityMetricValue(c))
       const maxValue = isDelta ? Math.max(...values.map(Math.abs), 1) : Math.max(...values, 1)
       return getMetricColor(getCityMetricValue(city), maxValue, isDelta)
     }
 
-    function formatCityValue(city, view = 'current') {
-      const value = view === 'current' 
-        ? getCityMetricValue(city, 'current')
-        : getCityMetricValue(city, 'comparison')
+    const formatCityValue = (city, view = 'current') => {
+      const value = getCityMetricValue(city, view)
       
-      if (mapView.value === 'delta') {
-        return formatDelta(value)
-      }
+      if (mapView.value === 'delta') return formatDelta(value)
       
       const formatMap = {
         revenue: formatters.zar,
@@ -1057,9 +985,8 @@ export default {
       return formatMap[mapMetric.value]?.(value) || formatters.zar(value)
     }
 
-    function highlightCity(city) {
+    const highlightCity = (city) => {
       if (!map || !L) return
-      
       if (highlightedMarker) highlightedMarker.setStyle({ weight: 2, color: '#ffffff' })
       
       const marker = markers.find(m => {
@@ -1074,7 +1001,7 @@ export default {
       }
     }
 
-    function resetHighlight() {
+    const resetHighlight = () => {
       if (highlightedMarker) {
         highlightedMarker.setStyle({ weight: 2, color: '#ffffff' })
         highlightedMarker.closePopup()
@@ -1082,49 +1009,45 @@ export default {
       }
     }
 
-    function zoomToCity(city) {
+    const zoomToCity = (city) => {
       if (!map) return
       map.setView([city.lat, city.lng], 10)
       highlightCity(city)
     }
 
     // ==================== CHART FUNCTIONS ====================
-    function createChartConfig(type, labels, datasets, options = {}) {
-      return {
-        type: 'bar',
-        data: { labels, datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: datasets.length > 1 },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => {
-                  const label = ctx.dataset.label || ''
-                  const value = ctx.parsed.y
-                  const formatted = ctx.dataset.formatter ? ctx.dataset.formatter(value) : value
-                  return `${label}: ${formatted}`
-                }
+    const createChartConfig = (type, labels, datasets, options = {}) => ({
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: datasets.length > 1 },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const label = ctx.dataset.label || ''
+                const value = ctx.parsed.y
+                const formatted = ctx.dataset.formatter ? ctx.dataset.formatter(value) : value
+                return `${label}: ${formatted}`
               }
             }
+          }
+        },
+        scales: {
+          y: { 
+            beginAtZero: true, 
+            grid: { color: '#e5e7eb' },
+            ticks: { callback: (value) => options.yFormatter ? options.yFormatter(value) : value }
           },
-          scales: {
-            y: { 
-              beginAtZero: true, 
-              grid: { color: '#e5e7eb' },
-              ticks: {
-                callback: (value) => options.yFormatter ? options.yFormatter(value) : value
-              }
-            },
-            x: { grid: { display: false } }
-          },
-          ...options
-        }
+          x: { grid: { display: false } }
+        },
+        ...options
       }
-    }
+    })
 
-    function updateRevenueChart() {
+    const updateRevenueChart = () => {
       if (!revenueChart.value || !locationRevenueData.value.length) return
       if (revenueChartInstance) revenueChartInstance.destroy()
       
@@ -1134,7 +1057,6 @@ export default {
       let datasets = []
       
       if (enableComparison.value && revenueChartView.value === 'sideBySide') {
-        // Side by side bars
         datasets = [
           {
             label: 'Current Period',
@@ -1143,131 +1065,106 @@ export default {
               if (revenueChartMetric.value === 'transactions') return item.transactions
               return item.conversions
             }),
-            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+            backgroundColor: CHART_COLORS.primary,
             borderRadius: 8
           },
           {
-            label: 'Previous Period',
+            label: 'Comparison Period',
             data: topLocations.map(item => {
               const comparison = locationRevenueComparison.value.find(c => c.city === item.city) || {}
               if (revenueChartMetric.value === 'revenue') return comparison.purchaseRevenue || 0
               if (revenueChartMetric.value === 'transactions') return comparison.transactions || 0
               return comparison.conversions || 0
             }),
-            backgroundColor: 'rgba(156, 163, 175, 0.6)',
+            backgroundColor: CHART_COLORS.secondary,
             borderRadius: 8
           }
         ]
       } else if (enableComparison.value && revenueChartView.value === 'delta') {
-        // Delta percentage bars
-        datasets = [
-          {
-            label: 'Change %',
-            data: topLocations.map(item => item.revenueDelta || 0),
-            backgroundColor: topLocations.map(item => 
-              (item.revenueDelta || 0) > 0 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(239, 68, 68, 0.8)'
-            ),
-            borderRadius: 8,
-            formatter: formatDelta
-          }
-        ]
+        datasets = [{
+          label: 'Change %',
+          data: topLocations.map(item => item.revenueDelta || 0),
+          backgroundColor: topLocations.map(item => 
+            (item.revenueDelta || 0) > 0 ? CHART_COLORS.success : CHART_COLORS.danger
+          ),
+          borderRadius: 8,
+          formatter: formatDelta
+        }]
       } else {
-        // Single period
-        datasets = [
-          {
-            label: revenueChartMetric.value === 'revenue' ? 'Revenue (ZAR)' : 
-                   revenueChartMetric.value === 'transactions' ? 'Transactions' : 'Conversions',
-            data: topLocations.map(item => {
-              if (revenueChartMetric.value === 'revenue') return item.purchaseRevenue
-              if (revenueChartMetric.value === 'transactions') return item.transactions
-              return item.conversions
-            }),
-            backgroundColor: 'rgba(59, 130, 246, 0.8)',
-            borderRadius: 8
-          }
-        ]
+        datasets = [{
+          label: revenueChartMetric.value === 'revenue' ? 'Revenue (ZAR)' : 
+                 revenueChartMetric.value === 'transactions' ? 'Transactions' : 'Conversions',
+          data: topLocations.map(item => {
+            if (revenueChartMetric.value === 'revenue') return item.purchaseRevenue
+            if (revenueChartMetric.value === 'transactions') return item.transactions
+            return item.conversions
+          }),
+          backgroundColor: CHART_COLORS.primary,
+          borderRadius: 8
+        }]
       }
       
       const formatter = revenueChartMetric.value === 'revenue' ? formatters.zar : formatters.number
-      
-      revenueChartInstance = new Chart(revenueChart.value, createChartConfig(
-        'bar',
-        labels,
-        datasets,
-        { yFormatter: formatter }
-      ))
+      revenueChartInstance = new Chart(revenueChart.value, createChartConfig('bar', labels, datasets, { yFormatter: formatter }))
     }
 
-    function updateSessionChart() {
+    const updateSessionChart = () => {
       if (!sessionChart.value || !locationSessionData.value.length) return
       if (sessionChartInstance) sessionChartInstance.destroy()
       
       const topLocations = locationSessionData.value.slice(0, 8)
       const labels = topLocations.map(item => item.city || 'Unknown')
-      
       const metricLabels = { 
         sessions: 'Sessions', 
         activeUsers: 'Active Users', 
-        newUsers: 'New Users',
-        conversions: 'Conversions'
+        newUsers: 'New Users', 
+        conversions: 'Conversions' 
       }
       
       let datasets = []
       
       if (enableComparison.value && sessionChartView.value === 'sideBySide') {
-        // Side by side bars
         datasets = [
           {
             label: 'Current Period',
             data: topLocations.map(item => item[sessionChartMetric.value] || 0),
-            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+            backgroundColor: CHART_COLORS.success,
             borderRadius: 8
           },
           {
-            label: 'Previous Period',
+            label: 'Comparison Period',
             data: topLocations.map(item => {
               const comparison = locationSessionComparison.value.find(c => c.city === item.city) || {}
               return comparison[sessionChartMetric.value] || 0
             }),
-            backgroundColor: 'rgba(156, 163, 175, 0.6)',
+            backgroundColor: CHART_COLORS.secondary,
             borderRadius: 8
           }
         ]
       } else if (enableComparison.value && sessionChartView.value === 'delta') {
-        // Delta percentage bars
         const deltaField = sessionChartMetric.value === 'sessions' ? 'sessionsDelta' :
                           sessionChartMetric.value === 'activeUsers' ? 'activeUsersDelta' :
                           sessionChartMetric.value === 'newUsers' ? 'newUsersDelta' : 'conversionsDelta'
         
-        datasets = [
-          {
-            label: 'Change %',
-            data: topLocations.map(item => item[deltaField] || 0),
-            backgroundColor: topLocations.map(item => 
-              (item[deltaField] || 0) > 0 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(239, 68, 68, 0.8)'
-            ),
-            borderRadius: 8,
-            formatter: formatDelta
-          }
-        ]
+        datasets = [{
+          label: 'Change %',
+          data: topLocations.map(item => item[deltaField] || 0),
+          backgroundColor: topLocations.map(item => 
+            (item[deltaField] || 0) > 0 ? CHART_COLORS.success : CHART_COLORS.danger
+          ),
+          borderRadius: 8,
+          formatter: formatDelta
+        }]
       } else {
-        // Single period
-        datasets = [
-          {
-            label: metricLabels[sessionChartMetric.value] || 'Sessions',
-            data: topLocations.map(item => item[sessionChartMetric.value] || 0),
-            backgroundColor: 'rgba(16, 185, 129, 0.8)',
-            borderRadius: 8
-          }
-        ]
+        datasets = [{
+          label: metricLabels[sessionChartMetric.value] || 'Sessions',
+          data: topLocations.map(item => item[sessionChartMetric.value] || 0),
+          backgroundColor: CHART_COLORS.success,
+          borderRadius: 8
+        }]
       }
       
-      sessionChartInstance = new Chart(sessionChart.value, createChartConfig(
-        'bar',
-        labels,
-        datasets,
-        { yFormatter: formatters.number }
-      ))
+      sessionChartInstance = new Chart(sessionChart.value, createChartConfig('bar', labels, datasets, { yFormatter: formatters.number }))
     }
 
     // ==================== WATCHERS ====================
@@ -1287,9 +1184,7 @@ export default {
     watch(mapView, () => !loading.value && map && updateMapMarkers())
     watch(mapMetric, () => !loading.value && map && updateMapMarkers())
     watch([locationRevenueData, locationSessionData], () => {
-      if (!loading.value && map) {
-        nextTick(updateMapMarkers)
-      }
+      if (!loading.value && map) nextTick(updateMapMarkers)
     }, { deep: true })
 
     // ==================== LIFECYCLE ====================
