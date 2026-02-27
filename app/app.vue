@@ -3,7 +3,7 @@
     <!-- Header with gradient background -->
     <header class="dashboard-header">
       <div class="header-content">
-        <h1>Conversion Intelligence</h1>
+        <h1>Hirsch's Conversion Intelligence</h1>
         <p class="subtitle">Track sales, understand why conversions change, and see where those changes happen geographically</p>
       </div>
       
