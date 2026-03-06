@@ -174,7 +174,7 @@ export default {
   setup() {
     // ==================== CONSTANTS ====================
     // const API_BASE = 'https://google-analytics-api-onqg.onrender.com'
-    const API_BASE = 'https://google-analytics-api-onqg.onrender.com'
+    const API_BASE = 'https://google-analytics-api-1.onrender.com'
     
     const CITY_COORDINATES = {
       'johannesburg': { lat: -26.2041, lng: 28.0473, name: 'Johannesburg' },
