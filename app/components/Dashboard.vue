@@ -4,7 +4,9 @@
     <header class="dashboard-header">
       <div class="header-content">
         <h1>Hirsch's Conversion Intelligence</h1>
-        <p class="subtitle">Track sales, understand why conversions change, and see where those changes happen geographically</p>
+        <p class="subtitle">
+          Track sales, understand why conversions change, and see where those changes happen geographically
+        </p>
       </div>
       
       <!-- Date Range Selector Component -->
@@ -23,6 +25,9 @@
       />
     </header>
 
+    <!-- SKU Counter Component (NEW) -->
+    <TotalAvailableProds />
+
     <!-- Loading Skeleton -->
     <div v-if="loading" class="loading-skeleton">
       <div v-for="n in 6" :key="n" class="skeleton-card">
@@ -40,12 +45,10 @@
         @toggleExpand="toggleExpandKPI"
       />
 
-      <!-- Customer Type Component (NEW) -->
-      <CustomerType
-        :engagementData="engagementData"
-      />
+      <!-- Customer Type Component -->
+      <CustomerType :engagementData="engagementData" />
 
-      <!-- Performance Drivers Component (NEW) -->
+      <!-- Performance Drivers Component -->
       <PerformanceDrivers
         :sessionData="locationSessionData"
         :sessionComparison="locationSessionComparison"
@@ -73,10 +76,8 @@
         @toggleExpand="toggleExpandPage"
       />
 
-      <!-- SKU Analysis Component (NEW) -->
-      <SKUAnalysis
-        :basketData="basketSizeData"
-      />
+      <!-- SKU Analysis Component -->
+      <SKUAnalysis :basketData="basketSizeData" />
 
       <!-- Basket Analysis Component -->
       <BasketAnalysis
@@ -86,7 +87,7 @@
         @toggleExpand="toggleExpandBasket"
       />
 
-      <!-- Promo Analysis Component (NEW) -->
+      <!-- Promo Analysis Component -->
       <PromoAnalysis
         :sourceData="sourceData"
         :sessionData="locationSessionData"
@@ -153,6 +154,7 @@ import PromoAnalysis from './PromoAnalysis.vue'
 import GeographicMap from './GeographicMap.vue'
 import ChartsSection from './ChartsSection.vue'
 import DataTables from './DataTables.vue'
+import TotalAvailableProds from './TotalAvailableProds.vue';
 import Chart from 'chart.js/auto'
 
 export default {
@@ -169,7 +171,8 @@ export default {
     PromoAnalysis,
     GeographicMap,
     ChartsSection,
-    DataTables
+    DataTables,
+    TotalAvailableProds
   },
   setup() {
     // ==================== CONSTANTS ====================
