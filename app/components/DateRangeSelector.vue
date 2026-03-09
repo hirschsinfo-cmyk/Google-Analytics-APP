@@ -138,6 +138,39 @@ export default {
     'update',
     'export'
   ],
+  mounted() {
+  console.log('=== DATATABLES MOUNTED ===');
+  console.log('enableComparison:', this.enableComparison);
+  console.log('locationSessionData:', this.locationSessionData?.length);
+  console.log('locationSessionComparison:', this.locationSessionComparison?.length);
+  console.log('locationRevenueData:', this.locationRevenueData?.length);
+  console.log('locationRevenueComparison:', this.locationRevenueComparison?.length);
+  console.log('sourceData:', this.sourceData?.length);
+  console.log('sourceComparison:', this.sourceComparison?.length);
+  
+  if (this.sourceData?.length > 0) {
+    console.log('First source item:', JSON.stringify(this.sourceData[0], null, 2));
+  }
+  if (this.sourceComparison?.length > 0) {
+    console.log('First source comparison:', JSON.stringify(this.sourceComparison[0], null, 2));
+  }
+},
+
+// Also add a watcher to see when props change
+watch: {
+  sourceData: {
+    handler(newVal) {
+      console.log('sourceData updated:', newVal?.length);
+    },
+    deep: true
+  },
+  sourceComparison: {
+    handler(newVal) {
+      console.log('sourceComparison updated:', newVal?.length);
+    },
+    deep: true
+  }
+},
   methods: {
     formatDate(date) {
       return new Date(date).toISOString().split('T')[0]

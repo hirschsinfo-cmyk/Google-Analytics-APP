@@ -25,7 +25,7 @@
       />
     </header>
 
-    <!-- SKU Counter Component (NEW) -->
+    <!-- SKU Counter Component -->
     <TotalAvailableProds />
 
     <!-- Loading Skeleton -->
@@ -154,8 +154,7 @@ import PromoAnalysis from './PromoAnalysis.vue'
 import GeographicMap from './GeographicMap.vue'
 import ChartsSection from './ChartsSection.vue'
 import DataTables from './DataTables.vue'
-import TotalAvailableProds from './TotalAvailableProds.vue';
-import Chart from 'chart.js/auto'
+import TotalAvailableProds from './TotalAvailableProds.vue'
 
 export default {
   name: 'Dashboard',
@@ -176,8 +175,7 @@ export default {
   },
   setup() {
     // ==================== CONSTANTS ====================
-    // const API_BASE = 'https://google-analytics-api-onqg.onrender.com'
-    const API_BASE = 'https://google-analytics-api-1.onrender.com'
+    const API_BASE = import.meta.env.VITE_API_BASE || 'https://google-analytics-api-1.onrender.com'
     
     const CITY_COORDINATES = {
       'johannesburg': { lat: -26.2041, lng: 28.0473, name: 'Johannesburg' },
@@ -215,7 +213,7 @@ export default {
     const showHotspots = ref(true)
     const activeLocationTab = ref('session')
     
-    // Expanded state for click-to-expand
+    // Expanded state
     const expandedKPI = ref(null)
     const expandedEngagement = ref(null)
     const expandedPage = ref(null)
@@ -253,17 +251,17 @@ export default {
     // ==================== UTILITIES ====================
     const formatters = {
       zar: (value) => {
-        if (value === null || value === undefined || isNaN(value)) return 'R0'
+        if (value == null || isNaN(value)) return 'R0'
         return new Intl.NumberFormat('en-ZA', { 
           style: 'currency', currency: 'ZAR', minimumFractionDigits: 0, maximumFractionDigits: 0
         }).format(value)
       },
       number: (value) => {
-        if (value === null || value === undefined || isNaN(value)) return '0'
+        if (value == null || isNaN(value)) return '0'
         return new Intl.NumberFormat('en-ZA').format(value)
       },
       percent: (value) => {
-        if (value === null || value === undefined || isNaN(value)) return '0%'
+        if (value == null || isNaN(value)) return '0%'
         return new Intl.NumberFormat('en-ZA', { 
           style: 'percent', minimumFractionDigits: 1 
         }).format(value / 100)
@@ -273,7 +271,7 @@ export default {
         return str.length > maxLength ? str.substring(0, maxLength) + '...' : str
       },
       delta: (value) => {
-        if (value === null || value === undefined || isNaN(value)) return '—'
+        if (value == null || isNaN(value)) return '—'
         const sign = value > 0 ? '+' : ''
         return `${sign}${Math.abs(value).toFixed(1)}%`
       },
@@ -299,7 +297,7 @@ export default {
     const truncateString = (str, maxLength) => formatters.truncate(str, maxLength)
 
     const calculateDelta = (current, previous) => {
-      if (!previous || previous === 0 || !current) return null
+      if (previous == null || previous === 0 || current == null) return null
       return ((current - previous) / previous) * 100
     }
 
@@ -401,66 +399,24 @@ export default {
       }
 
       const kpiConfigs = [
-        { 
-          label: 'Total Revenue', 
-          value: totals.revenue, 
-          rawValue: totals.revenue,
-          compValue: comparisonTotals.revenue,
-          rawComparison: comparisonTotals.revenue,
-          formatter: formatZAR, 
-          icon: 'trending_up', 
-          color: '#10b981' 
-        },
-        { 
-          label: 'Transactions', 
-          value: totals.transactions, 
-          rawValue: totals.transactions,
-          compValue: comparisonTotals.transactions,
-          rawComparison: comparisonTotals.transactions,
-          formatter: formatNumber, 
-          icon: 'shopping_cart', 
-          color: '#3b82f6' 
-        },
-        { 
-          label: 'Sessions', 
-          value: totals.sessions, 
-          rawValue: totals.sessions,
-          compValue: comparisonTotals.sessions,
-          rawComparison: comparisonTotals.sessions,
-          formatter: formatNumber, 
-          icon: 'visibility', 
-          color: '#f59e0b' 
-        },
-        { 
-          label: 'Conversions', 
-          value: totalConversions, 
-          rawValue: totalConversions,
-          compValue: comparisonTotals.conversions,
-          rawComparison: comparisonTotals.conversions,
-          formatter: formatNumber, 
-          icon: 'conversion_path', 
-          color: '#8b5cf6' 
-        },
-        { 
-          label: 'Avg. Conv. Rate', 
-          value: avgConversionRate, 
-          rawValue: avgConversionRate,
-          compValue: comparisonTotals.conversionRate,
-          rawComparison: comparisonTotals.conversionRate,
-          formatter: formatPercent, 
-          icon: 'percent', 
-          color: '#ec4899' 
-        },
-        { 
-          label: 'Avg. Basket Size', 
-          value: avgBasketSize, 
-          rawValue: avgBasketSize,
-          compValue: comparisonTotals.basketSize,
-          rawComparison: comparisonTotals.basketSize,
-          formatter: formatZAR, 
-          icon: 'shopping_basket', 
-          color: '#f97316' 
-        }
+        { label: 'Total Revenue', value: totals.revenue, rawValue: totals.revenue,
+          compValue: comparisonTotals.revenue, rawComparison: comparisonTotals.revenue,
+          formatter: formatZAR, icon: 'trending_up', color: '#10b981' },
+        { label: 'Transactions', value: totals.transactions, rawValue: totals.transactions,
+          compValue: comparisonTotals.transactions, rawComparison: comparisonTotals.transactions,
+          formatter: formatNumber, icon: 'shopping_cart', color: '#3b82f6' },
+        { label: 'Sessions', value: totals.sessions, rawValue: totals.sessions,
+          compValue: comparisonTotals.sessions, rawComparison: comparisonTotals.sessions,
+          formatter: formatNumber, icon: 'visibility', color: '#f59e0b' },
+        { label: 'Conversions', value: totalConversions, rawValue: totalConversions,
+          compValue: comparisonTotals.conversions, rawComparison: comparisonTotals.conversions,
+          formatter: formatNumber, icon: 'conversion_path', color: '#8b5cf6' },
+        { label: 'Avg. Conv. Rate', value: avgConversionRate, rawValue: avgConversionRate,
+          compValue: comparisonTotals.conversionRate, rawComparison: comparisonTotals.conversionRate,
+          formatter: formatPercent, icon: 'percent', color: '#ec4899' },
+        { label: 'Avg. Basket Size', value: avgBasketSize, rawValue: avgBasketSize,
+          compValue: comparisonTotals.basketSize, rawComparison: comparisonTotals.basketSize,
+          formatter: formatZAR, icon: 'shopping_basket', color: '#f97316' }
       ]
 
       return kpiConfigs.map(config => ({
@@ -499,9 +455,42 @@ export default {
       return await res.json()
     }
 
+    // Enhanced data processing with better matching and debugging
+    const findMatch = (array, criteria) => {
+      if (!array?.length) return null
+      
+      // Try exact match first
+      let match = array.find(item => 
+        Object.keys(criteria).every(key => item[key] === criteria[key])
+      )
+      
+      // Try normalized match if exact fails
+      if (!match) {
+        match = array.find(item =>
+          Object.keys(criteria).every(key => 
+            String(item[key] || '').trim().toLowerCase() === 
+            String(criteria[key] || '').trim().toLowerCase()
+          )
+        )
+      }
+      
+      return match
+    }
+
     const processSessionData = (current, comparison) => {
       return current.map(item => {
-        const comp = comparison.find(c => c.city === item.city && c.country === item.country) || {}
+        const comp = findMatch(comparison, { city: item.city, country: item.country }) || {}
+        
+        // Log first item for debugging
+        if (current.indexOf(item) === 0) {
+          console.log('Session data sample:', {
+            city: item.city,
+            currentRate: item.sessionConversionRate,
+            compRate: comp.sessionConversionRate,
+            delta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate)
+          })
+        }
+        
         return {
           ...item,
           sessionsDelta: calculateDelta(item.sessions, comp.sessions),
@@ -515,7 +504,7 @@ export default {
 
     const processRevenueData = (current, comparison) => {
       return current.map(item => {
-        const comp = comparison.find(c => c.city === item.city && c.country === item.country) || {}
+        const comp = findMatch(comparison, { city: item.city, country: item.country }) || {}
         const currentAOV = item.transactions ? item.purchaseRevenue / item.transactions : 0
         const comparisonAOV = comp.transactions ? comp.purchaseRevenue / comp.transactions : 0
         
@@ -530,12 +519,27 @@ export default {
     }
 
     const processSourceData = (current, comparison) => {
+      // Build lookup map for better performance
+      const comparisonMap = new Map()
+      comparison.forEach(item => {
+        const key = `${item.channel}|${item.deviceCategory}|${item.campaignName}`.toLowerCase()
+        comparisonMap.set(key, item)
+      })
+      
       return current.map(item => {
-        const comp = comparison.find(c => 
-          c.channel === item.channel && 
-          c.deviceCategory === item.deviceCategory &&
-          c.campaignName === item.campaignName
-        ) || {}
+        const key = `${item.channel}|${item.deviceCategory}|${item.campaignName}`.toLowerCase()
+        const comp = comparisonMap.get(key) || {}
+        
+        // Log first item for debugging
+        if (current.indexOf(item) === 0) {
+          console.log('Source data sample:', {
+            channel: item.channel,
+            currentRate: item.sessionConversionRate,
+            compRate: comp.sessionConversionRate,
+            hasMatch: !!comparisonMap.get(key),
+            delta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate)
+          })
+        }
         
         return {
           ...item,
@@ -547,8 +551,14 @@ export default {
     }
 
     const processEngagementData = (current, comparison) => {
+      const comparisonMap = new Map()
+      comparison.forEach(item => {
+        comparisonMap.set(item.deviceCategory?.toLowerCase(), item)
+      })
+      
       return current.map(item => {
-        const comp = comparison.find(c => c.deviceCategory === item.deviceCategory) || {}
+        const comp = comparisonMap.get(item.deviceCategory?.toLowerCase()) || {}
+        
         return {
           ...item,
           sessionsDelta: calculateDelta(item.sessions, comp.sessions),
@@ -561,8 +571,14 @@ export default {
     }
 
     const processPageHotspots = (current, comparison) => {
+      const comparisonMap = new Map()
+      comparison.forEach(item => {
+        comparisonMap.set(item.pagePath, item)
+      })
+      
       return current.map(item => {
-        const comp = comparison.find(c => c.pagePath === item.pagePath) || {}
+        const comp = comparisonMap.get(item.pagePath) || {}
+        
         return {
           ...item,
           viewsDelta: calculateDelta(item.views, comp.views)
@@ -571,8 +587,13 @@ export default {
     }
 
     const processBasketSizeData = (current, comparison) => {
+      const comparisonMap = new Map()
+      comparison.forEach(item => {
+        comparisonMap.set(item.country, item)
+      })
+      
       return current.map(item => {
-        const comp = comparison.find(c => c.country === item.country) || {}
+        const comp = comparisonMap.get(item.country) || {}
         const currentAvgBasketSize = item.transactions ? item.itemsPurchased / item.transactions : 0
         const comparisonAvgBasketSize = comp.transactions ? comp.itemsPurchased / comp.transactions : 0
         
@@ -589,6 +610,7 @@ export default {
 
     const fetchAllData = async () => {
       loading.value = true
+      
       // Reset expanded states
       expandedKPI.value = null
       expandedEngagement.value = null
@@ -613,7 +635,7 @@ export default {
           fetchData('/analytics/basket-size')
         ])
         
-        // Store comparison data
+        // Store raw comparison data
         locationSessionComparison.value = sessionResponse.comparisonPeriod || []
         locationRevenueComparison.value = revenueResponse.comparisonPeriod || []
         sourceComparison.value = sourceResponse.comparisonPeriod || []
@@ -621,13 +643,44 @@ export default {
         pageHotspotsComparison.value = pageResponse.comparisonPeriod || []
         basketSizeComparison.value = basketResponse.comparisonPeriod || []
         
-        // Process current data with deltas
-        locationSessionData.value = processSessionData(sessionResponse.currentPeriod || [], locationSessionComparison.value)
-        locationRevenueData.value = processRevenueData(revenueResponse.currentPeriod || [], locationRevenueComparison.value)
-        sourceData.value = processSourceData(sourceResponse.currentPeriod || [], sourceComparison.value)
-        engagementData.value = processEngagementData(engagementResponse.currentPeriod || [], engagementComparison.value)
-        pageHotspots.value = processPageHotspots(pageResponse.currentPeriod || [], pageHotspotsComparison.value)
-        basketSizeData.value = processBasketSizeData(basketResponse.currentPeriod || [], basketSizeComparison.value)
+        // Process data with deltas using enhanced matching
+        locationSessionData.value = processSessionData(
+          sessionResponse.currentPeriod || [], 
+          locationSessionComparison.value
+        )
+        
+        locationRevenueData.value = processRevenueData(
+          revenueResponse.currentPeriod || [], 
+          locationRevenueComparison.value
+        )
+        
+        sourceData.value = processSourceData(
+          sourceResponse.currentPeriod || [], 
+          sourceComparison.value
+        )
+        
+        engagementData.value = processEngagementData(
+          engagementResponse.currentPeriod || [], 
+          engagementComparison.value
+        )
+        
+        pageHotspots.value = processPageHotspots(
+          pageResponse.currentPeriod || [], 
+          pageHotspotsComparison.value
+        )
+        
+        basketSizeData.value = processBasketSizeData(
+          basketResponse.currentPeriod || [], 
+          basketSizeComparison.value
+        )
+        
+        // Log summary
+        console.log('Data processing complete:', {
+          sessionItems: locationSessionData.value.length,
+          revenueItems: locationRevenueData.value.length,
+          sourceItems: sourceData.value.length,
+          sourceComparisonItems: sourceComparison.value.length
+        })
         
       } catch (error) {
         console.error('Failed to fetch analytics:', error)
@@ -850,7 +903,6 @@ export default {
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0,1');
 
-/* Base styles from original - keep all the CSS */
 :root {
   --primary: #3b82f6;
   --primary-dark: #2563eb;
@@ -940,7 +992,6 @@ export default {
   position: relative;
 }
 
-/* Loading Skeleton */
 .loading-skeleton {
   max-width: 1400px;
   margin: var(--space-8) auto;
@@ -978,7 +1029,6 @@ export default {
   100% { background-position: -200% 0; }
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .dashboard-header {
     padding: var(--space-6) var(--space-6) 2.5rem;
