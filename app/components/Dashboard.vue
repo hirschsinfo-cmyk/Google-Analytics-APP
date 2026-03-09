@@ -65,6 +65,13 @@
         @toggleExpand="toggleExpandEngagement"
       />
 
+      <!-- Event Breakdown Component (NEW) -->
+      <EventBreakdown
+        :events="eventData"
+        :loading="loading"
+        :itemsPerPage="12"
+      />
+
       <!-- Page Hotspots Component -->
       <PageHotspots
         :pageHotspots="pageHotspots"
@@ -155,6 +162,7 @@ import GeographicMap from './GeographicMap.vue'
 import ChartsSection from './ChartsSection.vue'
 import DataTables from './DataTables.vue'
 import TotalAvailableProds from './TotalAvailableProds.vue'
+import EventBreakdown from './EventBreakdown.vue' // NEW IMPORT
 
 export default {
   name: 'Dashboard',
@@ -171,7 +179,8 @@ export default {
     GeographicMap,
     ChartsSection,
     DataTables,
-    TotalAvailableProds
+    TotalAvailableProds,
+    EventBreakdown // NEW COMPONENT
   },
   setup() {
     // ==================== CONSTANTS ====================
@@ -241,6 +250,7 @@ export default {
     const pageHotspotsComparison = ref([])
     const basketSizeData = ref([])
     const basketSizeComparison = ref([])
+    const eventData = ref([]) // NEW DATA CONTAINER
 
     // Map refs
     let map = null
@@ -434,7 +444,8 @@ export default {
              sourceData.value.length > 0 ||
              engagementData.value.length > 0 ||
              pageHotspots.value.length > 0 ||
-             basketSizeData.value.length > 0
+             basketSizeData.value.length > 0 ||
+             eventData.value.length > 0 // ADDED EVENT DATA CHECK
     })
 
     // ==================== API FUNCTIONS ====================
@@ -625,14 +636,16 @@ export default {
           sourceResponse,
           engagementResponse,
           pageResponse,
-          basketResponse
+          basketResponse,
+          eventResponse // NEW API RESPONSE
         ] = await Promise.all([
           fetchData('/analytics/conversions-by-location'),
           fetchData('/analytics/revenue-by-location'),
           fetchData('/analytics/conversions-by-source'),
           fetchData('/analytics/engagement'),
           fetchData('/analytics/page-hotspots'),
-          fetchData('/analytics/basket-size')
+          fetchData('/analytics/basket-size'),
+          fetchData('/analytics/conversions-by-event') // NEW API CALL
         ])
         
         // Store raw comparison data
@@ -673,13 +686,17 @@ export default {
           basketResponse.currentPeriod || [], 
           basketSizeComparison.value
         )
+
+        // Store event data (no comparison needed for events)
+        eventData.value = eventResponse.currentPeriod || [] // NEW DATA ASSIGNMENT
         
         // Log summary
         console.log('Data processing complete:', {
           sessionItems: locationSessionData.value.length,
           revenueItems: locationRevenueData.value.length,
           sourceItems: sourceData.value.length,
-          sourceComparisonItems: sourceComparison.value.length
+          sourceComparisonItems: sourceComparison.value.length,
+          eventItems: eventData.value.length // ADDED EVENT LOG
         })
         
       } catch (error) {
@@ -780,6 +797,14 @@ export default {
           item.itemsPurchased,
           item.avgBasketSize?.toFixed(1),
           item.avgRevenuePerTransaction?.toFixed(2)
+        ]),
+        [],
+        ['EVENT BREAKDOWN'], // NEW EVENT SECTION
+        ['Event Name', 'Event Count', 'Percentage'],
+        ...eventData.value.map(item => [
+          item.eventName || '—',
+          item.eventCount,
+          item.percentage + '%'
         ])
       ]
       
@@ -871,6 +896,7 @@ export default {
       engagementData,
       pageHotspots,
       basketSizeData,
+      eventData, // NEW RETURN VALUE
       topPages,
       saCities, 
       kpiData,
