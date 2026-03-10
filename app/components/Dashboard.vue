@@ -171,6 +171,7 @@
         @update:activeLocationTab="activeLocationTab = $event"
         @toggleTables="showTables = !showTables"
       />
+
     </div>
   </div>
 </template>
@@ -212,7 +213,7 @@ export default {
   },
   setup() {
     // ==================== CONSTANTS ====================
-    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001' //'https://google-analytics-api-1.onrender.com'
+    const API_BASE = import.meta.env.VITE_API_BASE ||  'https://google-analytics-api-1.onrender.com' //'http://localhost:3001'
     
     const CITY_COORDINATES = {
       'johannesburg': { lat: -26.2041, lng: 28.0473, name: 'Johannesburg' },
