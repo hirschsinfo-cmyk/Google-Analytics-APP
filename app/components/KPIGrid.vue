@@ -11,50 +11,55 @@
       @click="$emit('toggleExpand', kpi.label)"
       @keydown.enter="$emit('toggleExpand', kpi.label)"
     >
-      <div class="kpi-icon" :style="{ backgroundColor: kpi.color + '20' }">
-        <span class="material-symbols-outlined" :style="{ color: kpi.color }">
-          {{ kpi.icon }}
-        </span>
-      </div>
-
-      <div class="kpi-info">
-        <span class="kpi-label">{{ kpi.label }}</span>
-        <span class="kpi-value" :title="kpi.value">{{ kpi.value }}</span>
-
-        <!-- Comparison values -->
-        <div
-          v-if="enableComparison && kpi.comparisonValue !== null && kpi.comparisonValue !== undefined"
-          class="comparison-values"
-        >
-          <span class="comparison-label">Previous:</span>
-          <span class="comparison-value" :title="kpi.comparisonValue">
-            {{ kpi.comparisonValue }}
-          </span>
-          <span class="delta-badge" :class="getDeltaClass(kpi.delta)">
-            <span v-if="kpi.delta > 0">↑</span>
-            <span v-else-if="kpi.delta < 0">↓</span>
-            {{ formatDelta(kpi.delta) }}
+      <div class="kpi-header">
+        <div class="kpi-icon" :style="{ backgroundColor: kpi.color + '12' }">
+          <span class="material-symbols-outlined" :style="{ color: kpi.color }">
+            {{ kpi.icon }}
           </span>
         </div>
+        <span class="kpi-label">{{ kpi.label }}</span>
+      </div>
 
-        <!-- Expanded view -->
-        <div v-if="expandedKPI === kpi.label" class="expanded-view">
-          <div class="expanded-row">
-            <span class="expanded-label">Raw Value:</span>
-            <span class="expanded-value">{{ kpi.rawValue }}</span>
-          </div>
-          <div
-            v-if="enableComparison && kpi.rawComparison !== null && kpi.rawComparison !== undefined"
-            class="expanded-row"
-          >
-            <span class="expanded-label">Raw Previous:</span>
-            <span class="expanded-value">{{ kpi.rawComparison }}</span>
-          </div>
-          <div class="expanded-row">
-            <span class="expanded-label hint">
-              {{ expandedKPI === kpi.label ? '↓ Click to collapse' : '↑ Click to expand' }}
+      <div class="kpi-value-container">
+        <span class="kpi-value" :title="kpi.rawValue">{{ kpi.value }}</span>
+      </div>
+
+      <!-- Comparison section -->
+      <div v-if="enableComparison && kpi.comparisonValue" class="comparison-section">
+        <div class="comparison-header">
+          <span class="comparison-label">Comparison</span>
+          <span class="comparison-date" v-if="kpi.comparisonDate">{{ kpi.comparisonDate }}</span>
+        </div>
+        
+        <div class="comparison-content">
+          <div class="comparison-value-group">
+            <span class="comparison-value" :title="kpi.rawComparison">
+              {{ kpi.comparisonValue }}
             </span>
           </div>
+          
+          <div class="delta-group" :class="getDeltaClass(kpi.delta)">
+            <span class="material-symbols-outlined delta-icon">
+              {{ kpi.delta > 0 ? 'arrow_upward' : kpi.delta < 0 ? 'arrow_downward' : 'remove' }}
+            </span>
+            <span class="delta-value">{{ formatDelta(kpi.delta) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Expanded view -->
+      <div v-if="expandedKPI === kpi.label" class="expanded-view">
+        <div class="expanded-row">
+          <span class="expanded-label">Current (raw)</span>
+          <span class="expanded-value">{{ kpi.rawValue }}</span>
+        </div>
+        <div v-if="enableComparison && kpi.rawComparison" class="expanded-row">
+          <span class="expanded-label">Comparison (raw)</span>
+          <span class="expanded-value">{{ kpi.rawComparison }}</span>
+        </div>
+        <div class="expanded-hint">
+          <!-- <span class="material-symbols-outlined">click</span> -->
+          <span>Click to collapse</span>
         </div>
       </div>
     </div>
@@ -107,41 +112,47 @@ export default {
 <style scoped>
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--space-6);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-4);
   margin-bottom: var(--space-8);
 }
 
 .kpi-card {
   background: white;
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-md);
-  padding: var(--space-5);
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.03);
+  padding: var(--space-4);
   transition: all 0.2s ease;
   cursor: pointer;
-  min-width: 0;
-  border: 2px solid transparent;
+  border: 1px solid #f2f2f2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .kpi-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--gray-200);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02);
+  border-color: #e8e8e8;
 }
 
 .kpi-card.expanded {
-  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  background: linear-gradient(135deg, #ffffff, #fafafa);
   border: 2px solid var(--primary);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 12px 20px rgba(59, 130, 246, 0.06);
+  transform: scale(1.01);
+}
+
+.kpi-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .kpi-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-xl);
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -149,165 +160,188 @@ export default {
 }
 
 .kpi-icon .material-symbols-outlined {
-  font-size: 22px;
-}
-
-.kpi-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
+  font-size: 20px;
 }
 
 .kpi-label {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--gray-500);
-  margin-bottom: var(--space-1);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--gray-600);
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+}
+
+.kpi-value-container {
+  margin-top: -2px;
 }
 
 .kpi-value {
-  display: block;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 700;
-  color: var(--gray-800);
-  margin-bottom: var(--space-1);
+  color: var(--gray-900);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
   white-space: normal;
   word-break: break-word;
-  line-height: 1.3;
-  overflow: visible;
-  text-overflow: clip;
-  max-width: 100%;
   cursor: help;
   border-bottom: 1px dotted transparent;
   transition: border-color 0.2s;
 }
 
 .kpi-value:hover {
-  border-bottom-color: var(--gray-400);
+  border-bottom-color: var(--gray-300);
 }
 
-.comparison-values {
+/* Comparison section */
+.comparison-section {
+  background: #f8f9fc;
+  border-radius: 14px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid #edf2f7;
   display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.comparison-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  font-size: 0.75rem;
-  margin-top: var(--space-1);
-  background: var(--gray-50);
-  padding: var(--space-2);
-  border-radius: var(--radius-lg);
-  width: 100%;
 }
 
 .comparison-label {
+  font-size: 0.7rem;
+  font-weight: 600;
   color: var(--gray-500);
-  font-weight: 500;
-  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.comparison-date {
+  font-size: 0.65rem;
+  color: var(--gray-400);
+  font-weight: 400;
+}
+
+.comparison-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.comparison-value-group {
+  flex: 1;
 }
 
 .comparison-value {
+  font-size: 1.1rem;
   font-weight: 600;
-  color: var(--gray-700);
+  color: var(--gray-800);
   white-space: normal;
   word-break: break-word;
-  overflow: visible;
-  text-overflow: clip;
-  max-width: none;
-  flex: 1;
-  text-align: right;
   cursor: help;
   border-bottom: 1px dotted transparent;
+  transition: border-color 0.2s;
 }
 
 .comparison-value:hover {
   border-bottom-color: var(--gray-400);
 }
 
-.delta-badge {
-  display: inline-block;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
+.delta-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 30px;
   font-weight: 600;
-  font-size: 0.7rem;
-  text-align: center;
+  font-size: 0.75rem;
   white-space: nowrap;
   flex-shrink: 0;
-  min-width: 45px;
+  height: 28px;
 }
 
-.delta-badge.positive {
-  background: #d1fae5;
-  color: #065f46;
+.delta-group.positive {
+  background: #e6f7ec;
+  color: #0b5e42;
 }
 
-.delta-badge.negative {
-  background: #fee2e2;
-  color: #991b1b;
+.delta-group.negative {
+  background: #fee9e7;
+  color: #b34033;
 }
 
-.delta-badge.neutral {
-  background: var(--gray-200);
-  color: var(--gray-600);
+.delta-group.neutral {
+  background: #f0f0f0;
+  color: #666666;
 }
 
+.delta-icon {
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.delta-value {
+  font-weight: 600;
+}
+
+/* Expanded view */
 .expanded-view {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px dashed var(--gray-300);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid #edf2f7;
   animation: slideDown 0.2s ease-out;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .expanded-row {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  font-size: 0.85rem;
   padding: var(--space-1) 0;
-  font-size: 0.875rem;
-  gap: var(--space-2);
-  width: 100%;
-}
-
-.expanded-row:last-child {
-  padding-bottom: 0;
 }
 
 .expanded-label {
   color: var(--gray-500);
   font-weight: 500;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.expanded-label.hint {
-  color: var(--gray-400);
-  font-style: italic;
-  font-size: 0.75rem;
-  text-align: center;
-  width: 100%;
 }
 
 .expanded-value {
-  font-family: 'Inter', monospace;
   font-weight: 600;
   color: var(--gray-800);
+  font-family: 'Inter', monospace;
   word-break: break-word;
   text-align: right;
-  flex: 1;
-  margin-left: var(--space-2);
+  max-width: 60%;
+  font-size: 0.85rem;
+}
+
+.expanded-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--gray-400);
+  font-size: 0.7rem;
+  margin-top: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px dashed #e8e8e8;
+}
+
+.expanded-hint .material-symbols-outlined {
+  font-size: 0.9rem;
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;
@@ -315,14 +349,13 @@ export default {
   }
 }
 
-/* Responsive adjustments */
+/* Responsive */
 @media (max-width: 1200px) {
   .kpi-grid {
     grid-template-columns: repeat(3, 1fr);
   }
-  
   .kpi-value {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
   }
 }
 
@@ -330,50 +363,46 @@ export default {
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
   .kpi-value {
-    font-size: 1.3rem;
+    font-size: 1.5rem;
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .kpi-grid {
     grid-template-columns: 1fr;
-    gap: var(--space-4);
+    gap: var(--space-3);
   }
   
   .kpi-card {
-    padding: var(--space-4);
+    padding: var(--space-3);
   }
   
   .kpi-value {
-    font-size: 1.25rem;
-  }
-  
-  .comparison-values {
-    flex-direction: column;
-    align-items: flex-start;
+    font-size: 1.5rem;
   }
   
   .comparison-value {
-    text-align: left;
-    width: 100%;
+    font-size: 1rem;
   }
   
-  .delta-badge {
-    align-self: flex-end;
+  .comparison-content {
+    flex-wrap: wrap;
+  }
+  
+  .delta-group {
+    padding: 2px 6px;
   }
   
   .expanded-row {
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--space-1);
+    gap: 2px;
   }
   
   .expanded-value {
-    margin-left: 0;
     text-align: left;
-    width: 100%;
+    max-width: 100%;
   }
 }
 </style>

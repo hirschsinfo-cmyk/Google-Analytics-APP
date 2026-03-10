@@ -46,16 +46,28 @@
       />
 
       <!-- Customer Type Component -->
-      <CustomerType :engagementData="engagementData" />
+<CustomerType 
+  :engagementData="engagementData"
+  :engagementComparison="engagementComparison"
+  :enableComparison="enableComparison"
+  :comparisonStartDate="comparisonRange.startDate"
+  :comparisonEndDate="comparisonRange.endDate"
+/>
 
       <!-- Performance Drivers Component -->
-      <PerformanceDrivers
-        :sessionData="locationSessionData"
-        :sessionComparison="locationSessionComparison"
-        :basketData="basketSizeData"
-        :basketComparison="basketSizeComparison"
-        :engagementData="engagementData"
-      />
+    <!-- Performance Drivers Component -->
+<PerformanceDrivers
+  :sessionData="locationSessionData"
+  :sessionComparison="locationSessionComparison"
+  :basketData="basketSizeData"
+  :basketComparison="basketSizeComparison"
+  :engagementData="engagementData"
+  :enableComparison="enableComparison"
+  :comparisonStartDate="comparisonRange.startDate"
+  :comparisonEndDate="comparisonRange.endDate"
+  @toggleExpand="handleDriverExpand"
+/>
+
 
       <!-- Engagement Section Component -->
       <EngagementSection
@@ -65,9 +77,13 @@
         @toggleExpand="toggleExpandEngagement"
       />
 
-      <!-- Event Breakdown Component (NEW) -->
+      <!-- Event Breakdown Component with Comparison Support -->
       <EventBreakdown
         :events="eventData"
+        :comparisonEvents="eventComparisonData"
+        :enableComparison="enableComparison"
+        :comparisonStartDate="comparisonRange.startDate"
+        :comparisonEndDate="comparisonRange.endDate"
         :loading="loading"
         :itemsPerPage="12"
       />
@@ -84,7 +100,13 @@
       />
 
       <!-- SKU Analysis Component -->
-      <SKUAnalysis :basketData="basketSizeData" />
+<SKUAnalysis 
+  :basketData="basketSizeData"
+  :basketComparison="basketSizeComparison"
+  :enableComparison="enableComparison"
+  :comparisonStartDate="comparisonRange.startDate"
+  :comparisonEndDate="comparisonRange.endDate"
+/>
 
       <!-- Basket Analysis Component -->
       <BasketAnalysis
@@ -95,11 +117,17 @@
       />
 
       <!-- Promo Analysis Component -->
-      <PromoAnalysis
-        :sourceData="sourceData"
-        :sessionData="locationSessionData"
-        :basketData="basketSizeData"
-      />
+<PromoAnalysis
+  :sourceData="sourceData"
+  :sourceComparison="sourceComparison"
+  :sessionData="locationSessionData"
+  :sessionComparison="locationSessionComparison"
+  :basketData="basketSizeData"
+  :basketComparison="basketSizeComparison"
+  :enableComparison="enableComparison"
+  :comparisonStartDate="comparisonRange.startDate"
+  :comparisonEndDate="comparisonRange.endDate"
+/>
 
       <!-- Geographic Map Component -->
       <GeographicMap
@@ -148,7 +176,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted, watch, computed, onBeforeUnmount, nextTick } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import DateRangeSelector from './DateRangeSelector.vue'
 import KPIGrid from './KPIGrid.vue'
 import CustomerType from './CustomerType.vue'
@@ -162,7 +190,7 @@ import GeographicMap from './GeographicMap.vue'
 import ChartsSection from './ChartsSection.vue'
 import DataTables from './DataTables.vue'
 import TotalAvailableProds from './TotalAvailableProds.vue'
-import EventBreakdown from './EventBreakdown.vue' // NEW IMPORT
+import EventBreakdown from './EventBreakdown.vue'
 
 export default {
   name: 'Dashboard',
@@ -180,11 +208,11 @@ export default {
     ChartsSection,
     DataTables,
     TotalAvailableProds,
-    EventBreakdown // NEW COMPONENT
+    EventBreakdown
   },
   setup() {
     // ==================== CONSTANTS ====================
-    const API_BASE = import.meta.env.VITE_API_BASE || 'https://google-analytics-api-1.onrender.com'
+    const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001' //'https://google-analytics-api-1.onrender.com'
     
     const CITY_COORDINATES = {
       'johannesburg': { lat: -26.2041, lng: 28.0473, name: 'Johannesburg' },
@@ -200,6 +228,124 @@ export default {
       'upington': { lat: -28.4478, lng: 21.2561, name: 'Upington' },
       'george': { lat: -33.9881, lng: 22.4529, name: 'George' }
     }
+
+    const QUICK_RANGE_CONFIGS = {
+      '7daysAgo': { days: 7, compDays: 8 },
+      '30daysAgo': { days: 30, compDays: 31 },
+      '90daysAgo': { days: 90, compDays: 91 },
+      'thisMonth': { type: 'month' },
+      'lastMonth': { type: 'lastMonth' },
+      'thisYear': { type: 'year' }
+    }
+
+    // ==================== UTILITIES ====================
+    const utils = {
+      // Delta calculations
+      calculateDelta: (current, previous) => {
+        if (previous == null || previous === 0 || current == null) return null
+        return ((current - previous) / previous) * 100
+      },
+      
+      sumBy: (arr, key) => {
+        if (!arr?.length) return 0
+        return arr.reduce((sum, item) => sum + (item[key] || 0), 0)
+      },
+      
+      avgBy: (arr, key) => {
+        if (!arr?.length) return 0
+        return utils.sumBy(arr, key) / arr.length
+      },
+      
+      // Map building
+      buildMap: (arr, keyFn) => {
+        const map = new Map()
+        if (!arr?.length) return map
+        arr.forEach(item => map.set(keyFn(item), item))
+        return map
+      },
+      
+      buildCompositeKey: (...parts) => {
+        return parts.map(p => String(p || '').trim().toLowerCase()).join('|')
+      },
+      
+      // Find matches
+      findMatch: (array, criteria) => {
+        if (!array?.length) return null
+        
+        // Try exact match first
+        let match = array.find(item => 
+          Object.keys(criteria).every(key => item[key] === criteria[key])
+        )
+        
+        // Try normalized match if exact fails
+        if (!match) {
+          match = array.find(item =>
+            Object.keys(criteria).every(key => 
+              String(item[key] || '').trim().toLowerCase() === 
+              String(criteria[key] || '').trim().toLowerCase()
+            )
+          )
+        }
+        
+        return match
+      },
+      
+      // Formatters
+      formatters: {
+        zar: (value) => {
+          if (value == null || isNaN(value)) return 'R0'
+          return new Intl.NumberFormat('en-ZA', { 
+            style: 'currency', currency: 'ZAR', minimumFractionDigits: 0, maximumFractionDigits: 0
+          }).format(value)
+        },
+        number: (value) => {
+          if (value == null || isNaN(value)) return '0'
+          return new Intl.NumberFormat('en-ZA').format(value)
+        },
+        percent: (value) => {
+          if (value == null || isNaN(value)) return '0%'
+          return new Intl.NumberFormat('en-ZA', { 
+            style: 'percent', minimumFractionDigits: 1 
+          }).format(value / 100)
+        },
+        delta: (value) => {
+          if (value == null || isNaN(value)) return '—'
+          const sign = value > 0 ? '+' : ''
+          return `${sign}${Math.abs(value).toFixed(1)}%`
+        },
+        duration: (seconds) => {
+          if (!seconds || isNaN(seconds)) return '0m'
+          const mins = Math.floor(seconds / 60)
+          const secs = Math.floor(seconds % 60)
+          return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+        },
+        truncate: (str, maxLength) => {
+          if (!str) return str
+          return str.length > maxLength ? str.substring(0, maxLength) + '...' : str
+        }
+      },
+      
+      getDeltaClass: (delta) => {
+        if (delta > 0) return 'positive'
+        if (delta < 0) return 'negative'
+        return 'neutral'
+      },
+      
+      // Export helpers
+      exportSection: (title, headers, rows, includeEmptyRow = true) => {
+        const section = [
+          [title],
+          headers,
+          ...rows
+        ]
+        if (includeEmptyRow) section.push([])
+        return section
+      }
+    }
+
+    // Destructure for easy access
+    const { calculateDelta, sumBy, avgBy, buildMap, buildCompositeKey, findMatch, formatters, getDeltaClass, exportSection } = utils
+    const { zar: formatZAR, number: formatNumber, percent: formatPercent, delta: formatDelta, duration: formatDuration, truncate: truncateString } = formatters
 
     // ==================== STATE ====================
     const today = new Date().toISOString().split('T')[0]
@@ -250,7 +396,8 @@ export default {
     const pageHotspotsComparison = ref([])
     const basketSizeData = ref([])
     const basketSizeComparison = ref([])
-    const eventData = ref([]) // NEW DATA CONTAINER
+    const eventData = ref([])
+    const eventComparisonData = ref([])
 
     // Map refs
     let map = null
@@ -258,57 +405,128 @@ export default {
     let highlightedMarker = null
     let L = null
 
-    // ==================== UTILITIES ====================
-    const formatters = {
-      zar: (value) => {
-        if (value == null || isNaN(value)) return 'R0'
-        return new Intl.NumberFormat('en-ZA', { 
-          style: 'currency', currency: 'ZAR', minimumFractionDigits: 0, maximumFractionDigits: 0
-        }).format(value)
+    // ==================== PROCESSORS ====================
+    const processors = {
+      session: (current, comparison) => {
+        const comparisonMap = buildMap(comparison, item => buildCompositeKey(item.city, item.country))
+        
+        return current.map(item => {
+          const comp = comparisonMap.get(buildCompositeKey(item.city, item.country)) || {}
+          
+          if (current.indexOf(item) === 0) {
+            console.log('Session data sample:', {
+              city: item.city,
+              currentRate: item.sessionConversionRate,
+              compRate: comp.sessionConversionRate,
+              delta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate)
+            })
+          }
+          
+          return {
+            ...item,
+            sessionsDelta: calculateDelta(item.sessions, comp.sessions),
+            conversionsDelta: calculateDelta(item.conversions, comp.conversions),
+            conversionRateDelta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate),
+            activeUsersDelta: calculateDelta(item.activeUsers, comp.activeUsers),
+            newUsersDelta: calculateDelta(item.newUsers, comp.newUsers)
+          }
+        })
       },
-      number: (value) => {
-        if (value == null || isNaN(value)) return '0'
-        return new Intl.NumberFormat('en-ZA').format(value)
+      
+      revenue: (current, comparison) => {
+        const comparisonMap = buildMap(comparison, item => buildCompositeKey(item.city, item.country))
+        
+        return current.map(item => {
+          const comp = comparisonMap.get(buildCompositeKey(item.city, item.country)) || {}
+          const currentAOV = item.transactions ? item.purchaseRevenue / item.transactions : 0
+          const comparisonAOV = comp.transactions ? comp.purchaseRevenue / comp.transactions : 0
+          
+          return {
+            ...item,
+            revenueDelta: calculateDelta(item.purchaseRevenue, comp.purchaseRevenue),
+            transactionsDelta: calculateDelta(item.transactions, comp.transactions),
+            conversionsDelta: calculateDelta(item.conversions, comp.conversions),
+            aovDelta: calculateDelta(currentAOV, comparisonAOV)
+          }
+        })
       },
-      percent: (value) => {
-        if (value == null || isNaN(value)) return '0%'
-        return new Intl.NumberFormat('en-ZA', { 
-          style: 'percent', minimumFractionDigits: 1 
-        }).format(value / 100)
+      
+      source: (current, comparison) => {
+        const comparisonMap = buildMap(comparison, item => 
+          buildCompositeKey(item.channel, item.deviceCategory, item.campaignName)
+        )
+        
+        return current.map(item => {
+          const key = buildCompositeKey(item.channel, item.deviceCategory, item.campaignName)
+          const comp = comparisonMap.get(key) || {}
+          
+          if (current.indexOf(item) === 0) {
+            console.log('Source data sample:', {
+              channel: item.channel,
+              currentRate: item.sessionConversionRate,
+              compRate: comp.sessionConversionRate,
+              hasMatch: comparisonMap.has(key),
+              delta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate)
+            })
+          }
+          
+          return {
+            ...item,
+            sessionsDelta: calculateDelta(item.sessions, comp.sessions),
+            conversionsDelta: calculateDelta(item.conversions, comp.conversions),
+            conversionRateDelta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate)
+          }
+        })
       },
-      truncate: (str, maxLength) => {
-        if (!str) return str
-        return str.length > maxLength ? str.substring(0, maxLength) + '...' : str
+      
+      engagement: (current, comparison) => {
+        const comparisonMap = buildMap(comparison, item => item.deviceCategory?.toLowerCase())
+        
+        return current.map(item => {
+          const comp = comparisonMap.get(item.deviceCategory?.toLowerCase()) || {}
+          
+          return {
+            ...item,
+            sessionsDelta: calculateDelta(item.sessions, comp.sessions),
+            newUsersDelta: calculateDelta(item.newUsers, comp.newUsers),
+            activeUsersDelta: calculateDelta(item.activeUsers, comp.activeUsers),
+            durationDelta: calculateDelta(item.avgSessionDuration, comp.avgSessionDuration),
+            engagedSessionsDelta: calculateDelta(item.engagedSessions, comp.engagedSessions)
+          }
+        })
       },
-      delta: (value) => {
-        if (value == null || isNaN(value)) return '—'
-        const sign = value > 0 ? '+' : ''
-        return `${sign}${Math.abs(value).toFixed(1)}%`
+      
+      pageHotspots: (current, comparison) => {
+        const comparisonMap = buildMap(comparison, item => item.pagePath)
+        
+        return current.map(item => {
+          const comp = comparisonMap.get(item.pagePath) || {}
+          
+          return {
+            ...item,
+            viewsDelta: calculateDelta(item.views, comp.views)
+          }
+        })
       },
-      duration: (seconds) => {
-        if (!seconds || isNaN(seconds)) return '0m'
-        const mins = Math.floor(seconds / 60)
-        const secs = Math.floor(seconds % 60)
-        return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+      
+      basketSize: (current, comparison) => {
+        const comparisonMap = buildMap(comparison, item => item.country)
+        
+        return current.map(item => {
+          const comp = comparisonMap.get(item.country) || {}
+          const currentAvgBasketSize = item.transactions ? item.itemsPurchased / item.transactions : 0
+          const comparisonAvgBasketSize = comp.transactions ? comp.itemsPurchased / comp.transactions : 0
+          
+          return {
+            ...item,
+            revenueDelta: calculateDelta(item.purchaseRevenue, comp.purchaseRevenue),
+            transactionsDelta: calculateDelta(item.transactions, comp.transactions),
+            itemsDelta: calculateDelta(item.itemsPurchased, comp.itemsPurchased),
+            avgBasketSizeDelta: calculateDelta(currentAvgBasketSize, comparisonAvgBasketSize),
+            aovDelta: calculateDelta(item.avgRevenuePerTransaction, comp.avgRevenuePerTransaction)
+          }
+        })
       }
-    }
-
-    const getDeltaClass = (delta) => {
-      if (delta > 0) return 'positive'
-      if (delta < 0) return 'negative'
-      return 'neutral'
-    }
-
-    const formatDelta = (delta) => formatters.delta(delta)
-    const formatDuration = (seconds) => formatters.duration(seconds)
-    const formatZAR = (value) => formatters.zar(value)
-    const formatNumber = (value) => formatters.number(value)
-    const formatPercent = (value) => formatters.percent(value)
-    const truncateString = (str, maxLength) => formatters.truncate(str, maxLength)
-
-    const calculateDelta = (current, previous) => {
-      if (previous == null || previous === 0 || current == null) return null
-      return ((current - previous) / previous) * 100
     }
 
     // ==================== COMPUTED ====================
@@ -325,9 +543,9 @@ export default {
         const coords = cityKey ? CITY_COORDINATES[cityKey] : null
         if (!coords) return
         
-        const sessionItem = locationSessionData.value.find(s => s.city === revenueItem.city)
-        const sessionCompare = locationSessionComparison.value.find(s => s.city === revenueItem.city)
-        const revenueCompare = locationRevenueComparison.value.find(r => r.city === revenueItem.city)
+        const sessionItem = findMatch(locationSessionData.value, { city: revenueItem.city })
+        const sessionCompare = findMatch(locationSessionComparison.value, { city: revenueItem.city })
+        const revenueCompare = findMatch(locationRevenueComparison.value, { city: revenueItem.city })
         
         cities.push({
           name: revenueItem.city || 'Unknown',
@@ -355,7 +573,7 @@ export default {
         .sort((a, b) => b.views - a.views)
         .slice(0, 10)
         .map(page => {
-          const comparison = pageHotspotsComparison.value.find(p => p.pagePath === page.pagePath) || {}
+          const comparison = findMatch(pageHotspotsComparison.value, { pagePath: page.pagePath }) || {}
           return {
             ...page,
             viewsDelta: calculateDelta(page.views, comparison.views)
@@ -366,22 +584,17 @@ export default {
     const kpiData = computed(() => {
       // Current period totals
       const totals = {
-        revenue: locationRevenueData.value.reduce((sum, item) => sum + (item.purchaseRevenue || 0), 0),
-        transactions: locationRevenueData.value.reduce((sum, item) => sum + (item.transactions || 0), 0),
-        revenueConversions: locationRevenueData.value.reduce((sum, item) => sum + (item.conversions || 0), 0),
-        sessions: locationSessionData.value.reduce((sum, item) => sum + (item.sessions || 0), 0),
-        sessionConversions: locationSessionData.value.reduce((sum, item) => sum + (item.conversions || 0), 0),
-        activeUsers: locationSessionData.value.reduce((sum, item) => sum + (item.activeUsers || 0), 0)
+        revenue: sumBy(locationRevenueData.value, 'purchaseRevenue'),
+        transactions: sumBy(locationRevenueData.value, 'transactions'),
+        revenueConversions: sumBy(locationRevenueData.value, 'conversions'),
+        sessions: sumBy(locationSessionData.value, 'sessions'),
+        sessionConversions: sumBy(locationSessionData.value, 'conversions'),
+        activeUsers: sumBy(locationSessionData.value, 'activeUsers')
       }
       
       const totalConversions = Math.max(totals.revenueConversions, totals.sessionConversions)
-      const avgConversionRate = locationSessionData.value.length > 0 
-        ? locationSessionData.value.reduce((sum, item) => sum + (item.sessionConversionRate || 0), 0) / locationSessionData.value.length
-        : 0
-
-      const avgBasketSize = basketSizeData.value.length > 0
-        ? basketSizeData.value.reduce((sum, item) => sum + (item.avgRevenuePerTransaction || 0), 0) / basketSizeData.value.length
-        : 0
+      const avgConversionRate = avgBy(locationSessionData.value, 'sessionConversionRate')
+      const avgBasketSize = avgBy(basketSizeData.value, 'avgRevenuePerTransaction')
 
       // Comparison period totals
       let comparisonTotals = {
@@ -389,21 +602,17 @@ export default {
       }
       
       if (enableComparison.value) {
-        const compRevenueTotal = locationRevenueComparison.value.reduce((sum, item) => sum + (item.purchaseRevenue || 0), 0)
-        const compRevenueConversions = locationRevenueComparison.value.reduce((sum, item) => sum + (item.conversions || 0), 0)
-        const compSessionConversions = locationSessionComparison.value.reduce((sum, item) => sum + (item.conversions || 0), 0)
-        const compBasketSize = basketSizeComparison.value.length > 0
-          ? basketSizeComparison.value.reduce((sum, item) => sum + (item.avgRevenuePerTransaction || 0), 0) / basketSizeComparison.value.length
-          : 0
+        const compRevenueTotal = sumBy(locationRevenueComparison.value, 'purchaseRevenue')
+        const compRevenueConversions = sumBy(locationRevenueComparison.value, 'conversions')
+        const compSessionConversions = sumBy(locationSessionComparison.value, 'conversions')
+        const compBasketSize = avgBy(basketSizeComparison.value, 'avgRevenuePerTransaction')
         
         comparisonTotals = {
           revenue: compRevenueTotal,
-          transactions: locationRevenueComparison.value.reduce((sum, item) => sum + (item.transactions || 0), 0),
+          transactions: sumBy(locationRevenueComparison.value, 'transactions'),
           conversions: Math.max(compRevenueConversions, compSessionConversions),
-          sessions: locationSessionComparison.value.reduce((sum, item) => sum + (item.sessions || 0), 0),
-          conversionRate: locationSessionComparison.value.length > 0
-            ? locationSessionComparison.value.reduce((sum, item) => sum + (item.sessionConversionRate || 0), 0) / locationSessionComparison.value.length
-            : 0,
+          sessions: sumBy(locationSessionComparison.value, 'sessions'),
+          conversionRate: avgBy(locationSessionComparison.value, 'sessionConversionRate'),
           basketSize: compBasketSize
         }
       }
@@ -445,282 +654,148 @@ export default {
              engagementData.value.length > 0 ||
              pageHotspots.value.length > 0 ||
              basketSizeData.value.length > 0 ||
-             eventData.value.length > 0 // ADDED EVENT DATA CHECK
+             eventData.value.length > 0
     })
 
     // ==================== API FUNCTIONS ====================
     const formatDateForAPI = (date) => date
 
-    const fetchData = async (endpoint) => {
-      const url = new URL(`${API_BASE}${endpoint}`)
-      url.searchParams.append('startDate', formatDateForAPI(dateRange.startDate))
-      url.searchParams.append('endDate', formatDateForAPI(dateRange.endDate))
-      
-      if (enableComparison.value) {
-        url.searchParams.append('compareStartDate', formatDateForAPI(comparisonRange.startDate))
-        url.searchParams.append('compareEndDate', formatDateForAPI(comparisonRange.endDate))
-      }
-      
-      const res = await fetch(url)
-      if (!res.ok) throw new Error(`Fetch failed: ${endpoint}`)
-      return await res.json()
-    }
+  const fetchData = async (endpoint) => {
+  const url = new URL(`${API_BASE}${endpoint}`)
+  url.searchParams.append('startDate', formatDateForAPI(dateRange.startDate))
+  url.searchParams.append('endDate', formatDateForAPI(dateRange.endDate))
+  
+  if (enableComparison.value) {
+    url.searchParams.append('compareStartDate', formatDateForAPI(comparisonRange.startDate))
+    url.searchParams.append('compareEndDate', formatDateForAPI(comparisonRange.endDate))
+  }
+  
+  console.log(`Fetching ${endpoint} with params:`, {
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
+    compareStartDate: enableComparison.value ? comparisonRange.startDate : null,
+    compareEndDate: enableComparison.value ? comparisonRange.endDate : null
+  })
+  
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Fetch failed: ${endpoint}`)
+  const data = await res.json()
+  
+  console.log(`Response from ${endpoint}:`, {
+    hasCurrent: !!data.currentPeriod,
+    currentLength: data.currentPeriod?.length,
+    hasComparison: !!data.comparisonPeriod,
+    comparisonLength: data.comparisonPeriod?.length
+  })
+  
+  return data
+}
 
-    // Enhanced data processing with better matching and debugging
-    const findMatch = (array, criteria) => {
-      if (!array?.length) return null
-      
-      // Try exact match first
-      let match = array.find(item => 
-        Object.keys(criteria).every(key => item[key] === criteria[key])
-      )
-      
-      // Try normalized match if exact fails
-      if (!match) {
-        match = array.find(item =>
-          Object.keys(criteria).every(key => 
-            String(item[key] || '').trim().toLowerCase() === 
-            String(criteria[key] || '').trim().toLowerCase()
-          )
-        )
-      }
-      
-      return match
-    }
+const fetchAllData = async () => {
+  loading.value = true
+  
+  // Reset expanded states
+  expandedKPI.value = null
+  expandedEngagement.value = null
+  expandedPage.value = null
+  expandedBasket.value = null
+  expandedCity.value = null
+  
+  try {
+    const [
+      sessionResponse, 
+      revenueResponse, 
+      sourceResponse,
+      engagementResponse,
+      pageResponse,
+      basketResponse,
+      eventResponse
+    ] = await Promise.all([
+      fetchData('/analytics/conversions-by-location'),
+      fetchData('/analytics/revenue-by-location'),
+      fetchData('/analytics/conversions-by-source'),
+      fetchData('/analytics/engagement'),
+      fetchData('/analytics/page-hotspots'),
+      fetchData('/analytics/basket-size'),
+      fetchData('/analytics/conversions-by-event')
+    ])
+    
+    // ADD THIS DEBUG LOG
+    console.log('Engagement Response:', {
+      currentPeriod: engagementResponse.currentPeriod,
+      comparisonPeriod: engagementResponse.comparisonPeriod,
+      hasComparison: !!engagementResponse.comparisonPeriod,
+      comparisonLength: engagementResponse.comparisonPeriod?.length
+    })
+    
+    // Store raw comparison data
+    locationSessionComparison.value = sessionResponse.comparisonPeriod || []
+    locationRevenueComparison.value = revenueResponse.comparisonPeriod || []
+    sourceComparison.value = sourceResponse.comparisonPeriod || []
+    engagementComparison.value = engagementResponse.comparisonPeriod || [] // This should be populated
+    pageHotspotsComparison.value = pageResponse.comparisonPeriod || []
+    basketSizeComparison.value = basketResponse.comparisonPeriod || []
+    
+    // Process data with deltas using consolidated processors
+    locationSessionData.value = processors.session(
+      sessionResponse.currentPeriod || [], 
+      locationSessionComparison.value
+    )
+    
+    locationRevenueData.value = processors.revenue(
+      revenueResponse.currentPeriod || [], 
+      locationRevenueComparison.value
+    )
+    
+    sourceData.value = processors.source(
+      sourceResponse.currentPeriod || [], 
+      sourceComparison.value
+    )
+    
+    engagementData.value = processors.engagement(
+      engagementResponse.currentPeriod || [], 
+      engagementComparison.value
+    )
+    
+    pageHotspots.value = processors.pageHotspots(
+      pageResponse.currentPeriod || [], 
+      pageHotspotsComparison.value
+    )
+    
+    basketSizeData.value = processors.basketSize(
+      basketResponse.currentPeriod || [], 
+      basketSizeComparison.value
+    )
 
-    const processSessionData = (current, comparison) => {
-      return current.map(item => {
-        const comp = findMatch(comparison, { city: item.city, country: item.country }) || {}
-        
-        // Log first item for debugging
-        if (current.indexOf(item) === 0) {
-          console.log('Session data sample:', {
-            city: item.city,
-            currentRate: item.sessionConversionRate,
-            compRate: comp.sessionConversionRate,
-            delta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate)
-          })
-        }
-        
-        return {
-          ...item,
-          sessionsDelta: calculateDelta(item.sessions, comp.sessions),
-          conversionsDelta: calculateDelta(item.conversions, comp.conversions),
-          conversionRateDelta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate),
-          activeUsersDelta: calculateDelta(item.activeUsers, comp.activeUsers),
-          newUsersDelta: calculateDelta(item.newUsers, comp.newUsers)
-        }
-      })
-    }
-
-    const processRevenueData = (current, comparison) => {
-      return current.map(item => {
-        const comp = findMatch(comparison, { city: item.city, country: item.country }) || {}
-        const currentAOV = item.transactions ? item.purchaseRevenue / item.transactions : 0
-        const comparisonAOV = comp.transactions ? comp.purchaseRevenue / comp.transactions : 0
-        
-        return {
-          ...item,
-          revenueDelta: calculateDelta(item.purchaseRevenue, comp.purchaseRevenue),
-          transactionsDelta: calculateDelta(item.transactions, comp.transactions),
-          conversionsDelta: calculateDelta(item.conversions, comp.conversions),
-          aovDelta: calculateDelta(currentAOV, comparisonAOV)
-        }
-      })
-    }
-
-    const processSourceData = (current, comparison) => {
-      // Build lookup map for better performance
-      const comparisonMap = new Map()
-      comparison.forEach(item => {
-        const key = `${item.channel}|${item.deviceCategory}|${item.campaignName}`.toLowerCase()
-        comparisonMap.set(key, item)
-      })
-      
-      return current.map(item => {
-        const key = `${item.channel}|${item.deviceCategory}|${item.campaignName}`.toLowerCase()
-        const comp = comparisonMap.get(key) || {}
-        
-        // Log first item for debugging
-        if (current.indexOf(item) === 0) {
-          console.log('Source data sample:', {
-            channel: item.channel,
-            currentRate: item.sessionConversionRate,
-            compRate: comp.sessionConversionRate,
-            hasMatch: !!comparisonMap.get(key),
-            delta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate)
-          })
-        }
-        
-        return {
-          ...item,
-          sessionsDelta: calculateDelta(item.sessions, comp.sessions),
-          conversionsDelta: calculateDelta(item.conversions, comp.conversions),
-          conversionRateDelta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate)
-        }
-      })
-    }
-
-    const processEngagementData = (current, comparison) => {
-      const comparisonMap = new Map()
-      comparison.forEach(item => {
-        comparisonMap.set(item.deviceCategory?.toLowerCase(), item)
-      })
-      
-      return current.map(item => {
-        const comp = comparisonMap.get(item.deviceCategory?.toLowerCase()) || {}
-        
-        return {
-          ...item,
-          sessionsDelta: calculateDelta(item.sessions, comp.sessions),
-          newUsersDelta: calculateDelta(item.newUsers, comp.newUsers),
-          activeUsersDelta: calculateDelta(item.activeUsers, comp.activeUsers),
-          durationDelta: calculateDelta(item.avgSessionDuration, comp.avgSessionDuration),
-          engagedSessionsDelta: calculateDelta(item.engagedSessions, comp.engagedSessions)
-        }
-      })
-    }
-
-    const processPageHotspots = (current, comparison) => {
-      const comparisonMap = new Map()
-      comparison.forEach(item => {
-        comparisonMap.set(item.pagePath, item)
-      })
-      
-      return current.map(item => {
-        const comp = comparisonMap.get(item.pagePath) || {}
-        
-        return {
-          ...item,
-          viewsDelta: calculateDelta(item.views, comp.views)
-        }
-      })
-    }
-
-    const processBasketSizeData = (current, comparison) => {
-      const comparisonMap = new Map()
-      comparison.forEach(item => {
-        comparisonMap.set(item.country, item)
-      })
-      
-      return current.map(item => {
-        const comp = comparisonMap.get(item.country) || {}
-        const currentAvgBasketSize = item.transactions ? item.itemsPurchased / item.transactions : 0
-        const comparisonAvgBasketSize = comp.transactions ? comp.itemsPurchased / comp.transactions : 0
-        
-        return {
-          ...item,
-          revenueDelta: calculateDelta(item.purchaseRevenue, comp.purchaseRevenue),
-          transactionsDelta: calculateDelta(item.transactions, comp.transactions),
-          itemsDelta: calculateDelta(item.itemsPurchased, comp.itemsPurchased),
-          avgBasketSizeDelta: calculateDelta(currentAvgBasketSize, comparisonAvgBasketSize),
-          aovDelta: calculateDelta(item.avgRevenuePerTransaction, comp.avgRevenuePerTransaction)
-        }
-      })
-    }
-
-    const fetchAllData = async () => {
-      loading.value = true
-      
-      // Reset expanded states
-      expandedKPI.value = null
-      expandedEngagement.value = null
-      expandedPage.value = null
-      expandedBasket.value = null
-      expandedCity.value = null
-      
-      try {
-        const [
-          sessionResponse, 
-          revenueResponse, 
-          sourceResponse,
-          engagementResponse,
-          pageResponse,
-          basketResponse,
-          eventResponse // NEW API RESPONSE
-        ] = await Promise.all([
-          fetchData('/analytics/conversions-by-location'),
-          fetchData('/analytics/revenue-by-location'),
-          fetchData('/analytics/conversions-by-source'),
-          fetchData('/analytics/engagement'),
-          fetchData('/analytics/page-hotspots'),
-          fetchData('/analytics/basket-size'),
-          fetchData('/analytics/conversions-by-event') // NEW API CALL
-        ])
-        
-        // Store raw comparison data
-        locationSessionComparison.value = sessionResponse.comparisonPeriod || []
-        locationRevenueComparison.value = revenueResponse.comparisonPeriod || []
-        sourceComparison.value = sourceResponse.comparisonPeriod || []
-        engagementComparison.value = engagementResponse.comparisonPeriod || []
-        pageHotspotsComparison.value = pageResponse.comparisonPeriod || []
-        basketSizeComparison.value = basketResponse.comparisonPeriod || []
-        
-        // Process data with deltas using enhanced matching
-        locationSessionData.value = processSessionData(
-          sessionResponse.currentPeriod || [], 
-          locationSessionComparison.value
-        )
-        
-        locationRevenueData.value = processRevenueData(
-          revenueResponse.currentPeriod || [], 
-          locationRevenueComparison.value
-        )
-        
-        sourceData.value = processSourceData(
-          sourceResponse.currentPeriod || [], 
-          sourceComparison.value
-        )
-        
-        engagementData.value = processEngagementData(
-          engagementResponse.currentPeriod || [], 
-          engagementComparison.value
-        )
-        
-        pageHotspots.value = processPageHotspots(
-          pageResponse.currentPeriod || [], 
-          pageHotspotsComparison.value
-        )
-        
-        basketSizeData.value = processBasketSizeData(
-          basketResponse.currentPeriod || [], 
-          basketSizeComparison.value
-        )
-
-        // Store event data (no comparison needed for events)
-        eventData.value = eventResponse.currentPeriod || [] // NEW DATA ASSIGNMENT
-        
-        // Log summary
-        console.log('Data processing complete:', {
-          sessionItems: locationSessionData.value.length,
-          revenueItems: locationRevenueData.value.length,
-          sourceItems: sourceData.value.length,
-          sourceComparisonItems: sourceComparison.value.length,
-          eventItems: eventData.value.length // ADDED EVENT LOG
-        })
-        
-      } catch (error) {
-        console.error('Failed to fetch analytics:', error)
-      } finally {
-        loading.value = false
-      }
-    }
+    // Store event data with comparison
+    eventData.value = eventResponse.currentPeriod || []
+    eventComparisonData.value = eventResponse.comparisonPeriod || []
+    
+    // Log summary
+    console.log('Data processing complete:', {
+      sessionItems: locationSessionData.value.length,
+      revenueItems: locationRevenueData.value.length,
+      sourceItems: sourceData.value.length,
+      sourceComparisonItems: sourceComparison.value.length,
+      engagementItems: engagementData.value.length,
+      engagementComparisonItems: engagementComparison.value.length, // Check this value
+      eventItems: eventData.value.length,
+      eventComparisonItems: eventComparisonData.value.length
+    })
+    
+  } catch (error) {
+    console.error('Failed to fetch analytics:', error)
+  } finally {
+    loading.value = false
+  }
+}
 
     // ==================== QUICK RANGE FUNCTIONS ====================
     const applyQuickRange = () => {
       const end = new Date()
       let start = new Date()
-      
-      const rangeConfigs = {
-        '7daysAgo': { days: 7, compDays: 8 },
-        '30daysAgo': { days: 30, compDays: 31 },
-        '90daysAgo': { days: 90, compDays: 91 },
-        'thisMonth': { type: 'month' },
-        'lastMonth': { type: 'lastMonth' },
-        'thisYear': { type: 'year' }
-      }
 
-      const config = rangeConfigs[selectedQuickRange.value]
+      const config = QUICK_RANGE_CONFIGS[selectedQuickRange.value]
       if (!config) return
 
       if (config.days) {
@@ -754,58 +829,72 @@ export default {
         [`Main Period: ${dateRange.startDate} to ${dateRange.endDate}`],
         ...(enableComparison.value ? [[`Comparison Period: ${comparisonRange.startDate} to ${comparisonRange.endDate}`]] : []),
         [],
-        ['SESSIONS & USERS BY LOCATION'],
-        ['City', 'Country', 'Sessions', 'Conversions', 'Conversion Rate', 'Active Users', 'New Users'],
-        ...locationSessionData.value.map(item => [
-          item.city || '—', item.country || '—', item.sessions, item.conversions,
-          (item.sessionConversionRate / 100).toFixed(3), item.activeUsers, item.newUsers
-        ]),
-        [],
-        ['REVENUE BY LOCATION (ZAR)'],
-        ['City', 'Country', 'Revenue (ZAR)', 'Transactions', 'Conversions', 'Avg Order Value (ZAR)'],
-        ...locationRevenueData.value.map(item => [
-          item.city || '—', item.country || '—', item.purchaseRevenue, item.transactions, item.conversions,
-          item.transactions ? (item.purchaseRevenue / item.transactions).toFixed(2) : 0
-        ]),
-        [],
-        ['SOURCE ANALYSIS'],
-        ['Channel', 'Device', 'Campaign', 'Sessions', 'Conversions', 'Conversion Rate'],
-        ...sourceData.value.map(item => [
-          item.channel || 'Other', item.deviceCategory || '—', item.campaignName || '—',
-          item.sessions, item.conversions, (item.sessionConversionRate / 100).toFixed(3)
-        ]),
-        [],
-        ['DEVICE ENGAGEMENT'],
-        ['Device', 'Sessions', 'New Users', 'Active Users', 'Avg Session Duration', 'Engaged Sessions'],
-        ...engagementData.value.map(item => [
-          item.deviceCategory || '—', item.sessions, item.newUsers, item.activeUsers,
-          Math.round(item.avgSessionDuration / 60) + 'm', item.engagedSessions
-        ]),
-        [],
-        ['TOP PAGES'],
-        ['Page Title', 'Page Path', 'Views'],
-        ...pageHotspots.value.slice(0, 20).map(item => [
-          item.pageTitle || '—', item.pagePath || '—', item.views
-        ]),
-        [],
-        ['BASKET ANALYSIS'],
-        ['Country', 'Revenue', 'Transactions', 'Items', 'Avg Basket Size', 'Avg Order Value'],
-        ...basketSizeData.value.map(item => [
-          item.country || 'Global', 
-          item.purchaseRevenue, 
-          item.transactions, 
-          item.itemsPurchased,
-          item.avgBasketSize?.toFixed(1),
-          item.avgRevenuePerTransaction?.toFixed(2)
-        ]),
-        [],
-        ['EVENT BREAKDOWN'], // NEW EVENT SECTION
-        ['Event Name', 'Event Count', 'Percentage'],
-        ...eventData.value.map(item => [
-          item.eventName || '—',
-          item.eventCount,
-          item.percentage + '%'
-        ])
+        ...exportSection('SESSIONS & USERS BY LOCATION',
+          ['City', 'Country', 'Sessions', 'Conversions', 'Conversion Rate', 'Active Users', 'New Users'],
+          locationSessionData.value.map(item => [
+            item.city || '—', item.country || '—', item.sessions, item.conversions,
+            (item.sessionConversionRate / 100).toFixed(3), item.activeUsers, item.newUsers
+          ])
+        ),
+        ...exportSection('REVENUE BY LOCATION (ZAR)',
+          ['City', 'Country', 'Revenue (ZAR)', 'Transactions', 'Conversions', 'Avg Order Value (ZAR)'],
+          locationRevenueData.value.map(item => [
+            item.city || '—', item.country || '—', item.purchaseRevenue, item.transactions, item.conversions,
+            item.transactions ? (item.purchaseRevenue / item.transactions).toFixed(2) : 0
+          ])
+        ),
+        ...exportSection('SOURCE ANALYSIS',
+          ['Channel', 'Device', 'Campaign', 'Sessions', 'Conversions', 'Conversion Rate'],
+          sourceData.value.map(item => [
+            item.channel || 'Other', item.deviceCategory || '—', item.campaignName || '—',
+            item.sessions, item.conversions, (item.sessionConversionRate / 100).toFixed(3)
+          ])
+        ),
+        ...exportSection('DEVICE ENGAGEMENT',
+          ['Device', 'Sessions', 'New Users', 'Active Users', 'Avg Session Duration', 'Engaged Sessions'],
+          engagementData.value.map(item => [
+            item.deviceCategory || '—', item.sessions, item.newUsers, item.activeUsers,
+            Math.round(item.avgSessionDuration / 60) + 'm', item.engagedSessions
+          ])
+        ),
+        ...exportSection('TOP PAGES',
+          ['Page Title', 'Page Path', 'Views'],
+          pageHotspots.value.slice(0, 20).map(item => [
+            item.pageTitle || '—', item.pagePath || '—', item.views
+          ])
+        ),
+        ...exportSection('BASKET ANALYSIS',
+          ['Country', 'Revenue', 'Transactions', 'Items', 'Avg Basket Size', 'Avg Order Value'],
+          basketSizeData.value.map(item => [
+            item.country || 'Global', 
+            item.purchaseRevenue, 
+            item.transactions, 
+            item.itemsPurchased,
+            item.avgBasketSize?.toFixed(1),
+            item.avgRevenuePerTransaction?.toFixed(2)
+          ])
+        ),
+        ...exportSection('EVENT BREAKDOWN',
+          ['Event Name', 'Event Count', 'Percentage'],
+          eventData.value.map(item => [
+            item.eventName || '—',
+            item.eventCount,
+            item.percentage + '%'
+          ])
+        ),
+        ...(enableComparison.value && eventComparisonData.value.length > 0 ? exportSection('EVENT BREAKDOWN COMPARISON',
+          ['Event Name', 'Previous Count', 'Previous Percentage', 'Change %'],
+          eventData.value.map(item => {
+            const comparison = findMatch(eventComparisonData.value, { eventName: item.eventName }) || {}
+            const delta = calculateDelta(item.eventCount, comparison.eventCount)
+            return [
+              item.eventName || '—',
+              comparison.eventCount || '—',
+              comparison.percentage ? comparison.percentage + '%' : '—',
+              delta ? formatDelta(delta) : '—'
+            ]
+          })
+        ) : [])
       ]
       
       const csvContent = data.map(row => row.join(',')).join('\n')
@@ -894,9 +983,13 @@ export default {
       sourceData, 
       sourceComparison,
       engagementData,
+      engagementComparison,
       pageHotspots,
+      pageHotspotsComparison,
       basketSizeData,
-      eventData, // NEW RETURN VALUE
+      basketSizeComparison,
+      eventData,
+      eventComparisonData,
       topPages,
       saCities, 
       kpiData,
