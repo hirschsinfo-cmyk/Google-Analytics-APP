@@ -1,12 +1,24 @@
 <template>
-  <div class="dashboard">
+  <div v-if="!isAuthenticated" class="login-wrapper">
+    <LoginForm @login-success="handleLoginSuccess" />
+  </div>
+  
+  <div v-else class="dashboard">
     <!-- Header -->
     <header class="dashboard-header">
       <div class="header-content">
-        <h1>Hirsch's Conversion Intelligence</h1>
-        <p class="subtitle">
-          Track sales, understand why conversions change, and see where those changes happen geographically
-        </p>
+        <div class="header-top">
+          <div>
+            <h1>Hirsch's Conversion Intelligence</h1>
+            <p class="subtitle">
+              Track sales, understand why conversions change, and see where those changes happen geographically
+            </p>
+          </div>
+          <button @click="handleLogout" class="logout-button">
+            <span class="material-symbols-outlined">logout</span>
+            Logout ({{ username }})
+          </button>
+        </div>
       </div>
       
       <!-- Date Range Selector Component -->
@@ -46,28 +58,26 @@
       />
 
       <!-- Customer Type Component -->
-<CustomerType 
-  :engagementData="engagementData"
-  :engagementComparison="engagementComparison"
-  :enableComparison="enableComparison"
-  :comparisonStartDate="comparisonRange.startDate"
-  :comparisonEndDate="comparisonRange.endDate"
-/>
+      <CustomerType 
+        :engagementData="engagementData"
+        :engagementComparison="engagementComparison"
+        :enableComparison="enableComparison"
+        :comparisonStartDate="comparisonRange.startDate"
+        :comparisonEndDate="comparisonRange.endDate"
+      />
 
       <!-- Performance Drivers Component -->
-    <!-- Performance Drivers Component -->
-<PerformanceDrivers
-  :sessionData="locationSessionData"
-  :sessionComparison="locationSessionComparison"
-  :basketData="basketSizeData"
-  :basketComparison="basketSizeComparison"
-  :engagementData="engagementData"
-  :enableComparison="enableComparison"
-  :comparisonStartDate="comparisonRange.startDate"
-  :comparisonEndDate="comparisonRange.endDate"
-  @toggleExpand="handleDriverExpand"
-/>
-
+      <PerformanceDrivers
+        :sessionData="locationSessionData"
+        :sessionComparison="locationSessionComparison"
+        :basketData="basketSizeData"
+        :basketComparison="basketSizeComparison"
+        :engagementData="engagementData"
+        :enableComparison="enableComparison"
+        :comparisonStartDate="comparisonRange.startDate"
+        :comparisonEndDate="comparisonRange.endDate"
+        @toggleExpand="handleDriverExpand"
+      />
 
       <!-- Engagement Section Component -->
       <EngagementSection
@@ -100,13 +110,13 @@
       />
 
       <!-- SKU Analysis Component -->
-<SKUAnalysis 
-  :basketData="basketSizeData"
-  :basketComparison="basketSizeComparison"
-  :enableComparison="enableComparison"
-  :comparisonStartDate="comparisonRange.startDate"
-  :comparisonEndDate="comparisonRange.endDate"
-/>
+      <SKUAnalysis 
+        :basketData="basketSizeData"
+        :basketComparison="basketSizeComparison"
+        :enableComparison="enableComparison"
+        :comparisonStartDate="comparisonRange.startDate"
+        :comparisonEndDate="comparisonRange.endDate"
+      />
 
       <!-- Basket Analysis Component -->
       <BasketAnalysis
@@ -117,17 +127,17 @@
       />
 
       <!-- Promo Analysis Component -->
-<PromoAnalysis
-  :sourceData="sourceData"
-  :sourceComparison="sourceComparison"
-  :sessionData="locationSessionData"
-  :sessionComparison="locationSessionComparison"
-  :basketData="basketSizeData"
-  :basketComparison="basketSizeComparison"
-  :enableComparison="enableComparison"
-  :comparisonStartDate="comparisonRange.startDate"
-  :comparisonEndDate="comparisonRange.endDate"
-/>
+      <PromoAnalysis
+        :sourceData="sourceData"
+        :sourceComparison="sourceComparison"
+        :sessionData="locationSessionData"
+        :sessionComparison="locationSessionComparison"
+        :basketData="basketSizeData"
+        :basketComparison="basketSizeComparison"
+        :enableComparison="enableComparison"
+        :comparisonStartDate="comparisonRange.startDate"
+        :comparisonEndDate="comparisonRange.endDate"
+      />
 
       <!-- Geographic Map Component -->
       <GeographicMap
@@ -171,7 +181,6 @@
         @update:activeLocationTab="activeLocationTab = $event"
         @toggleTables="showTables = !showTables"
       />
-
     </div>
   </div>
 </template>
@@ -192,6 +201,7 @@ import ChartsSection from './ChartsSection.vue'
 import DataTables from './DataTables.vue'
 import TotalAvailableProds from './TotalAvailableProds.vue'
 import EventBreakdown from './EventBreakdown.vue'
+import LoginForm from './LoginForm.vue'
 
 export default {
   name: 'Dashboard',
@@ -209,9 +219,48 @@ export default {
     ChartsSection,
     DataTables,
     TotalAvailableProds,
-    EventBreakdown
+    EventBreakdown,
+    LoginForm
   },
   setup() {
+    // ==================== AUTHENTICATION STATE ====================
+    const isAuthenticated = ref(false)
+    const username = ref('')
+    const password = ref('') // Store password for API calls
+
+    // Check authentication status on mount
+    const checkAuth = () => {
+      const auth = localStorage.getItem('isAuthenticated') === 'true'
+      const user = localStorage.getItem('username') || ''
+      const pass = localStorage.getItem('password') || ''
+      isAuthenticated.value = auth
+      username.value = user
+      password.value = pass
+    }
+
+    // Handle successful login
+    const handleLoginSuccess = (user) => {
+      isAuthenticated.value = true
+      username.value = user
+      password.value = localStorage.getItem('password') || ''
+      fetchAllData() // Fetch data after login
+    }
+
+    // Handle logout
+    const handleLogout = () => {
+      localStorage.removeItem('isAuthenticated')
+      localStorage.removeItem('username')
+      localStorage.removeItem('password')
+      isAuthenticated.value = false
+      username.value = ''
+      password.value = ''
+    }
+
+    // Listen for login state changes from other tabs/windows
+    if (process.client) {
+      window.addEventListener('login-state-changed', checkAuth)
+    }
+
     // ==================== CONSTANTS ====================
     const API_BASE = import.meta.env.VITE_API_BASE ||  'https://google-analytics-api-1.onrender.com' //'http://localhost:3001'
     
@@ -241,7 +290,6 @@ export default {
 
     // ==================== UTILITIES ====================
     const utils = {
-      // Delta calculations
       calculateDelta: (current, previous) => {
         if (previous == null || previous === 0 || current == null) return null
         return ((current - previous) / previous) * 100
@@ -257,7 +305,6 @@ export default {
         return utils.sumBy(arr, key) / arr.length
       },
       
-      // Map building
       buildMap: (arr, keyFn) => {
         const map = new Map()
         if (!arr?.length) return map
@@ -269,16 +316,13 @@ export default {
         return parts.map(p => String(p || '').trim().toLowerCase()).join('|')
       },
       
-      // Find matches
       findMatch: (array, criteria) => {
         if (!array?.length) return null
         
-        // Try exact match first
         let match = array.find(item => 
           Object.keys(criteria).every(key => item[key] === criteria[key])
         )
         
-        // Try normalized match if exact fails
         if (!match) {
           match = array.find(item =>
             Object.keys(criteria).every(key => 
@@ -291,7 +335,6 @@ export default {
         return match
       },
       
-      // Formatters
       formatters: {
         zar: (value) => {
           if (value == null || isNaN(value)) return 'R0'
@@ -332,7 +375,6 @@ export default {
         return 'neutral'
       },
       
-      // Export helpers
       exportSection: (title, headers, rows, includeEmptyRow = true) => {
         const section = [
           [title],
@@ -344,14 +386,12 @@ export default {
       }
     }
 
-    // Destructure for easy access
     const { calculateDelta, sumBy, avgBy, buildMap, buildCompositeKey, findMatch, formatters, getDeltaClass, exportSection } = utils
     const { zar: formatZAR, number: formatNumber, percent: formatPercent, delta: formatDelta, duration: formatDuration, truncate: truncateString } = formatters
 
     // ==================== STATE ====================
     const today = new Date().toISOString().split('T')[0]
     
-    // Date ranges
     const dateRange = reactive({ 
       startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       endDate: today
@@ -369,14 +409,12 @@ export default {
     const showHotspots = ref(true)
     const activeLocationTab = ref('session')
     
-    // Expanded state
     const expandedKPI = ref(null)
     const expandedEngagement = ref(null)
     const expandedPage = ref(null)
     const expandedBasket = ref(null)
     const expandedCity = ref(null)
     
-    // Metrics and views
     const revenueChartMetric = ref('revenue')
     const sessionChartMetric = ref('sessions')
     const mapMetric = ref('revenue')
@@ -384,7 +422,6 @@ export default {
     const revenueChartView = ref('sideBySide')
     const sessionChartView = ref('sideBySide')
 
-    // Data containers
     const locationSessionData = ref([])
     const locationSessionComparison = ref([])
     const locationRevenueData = ref([])
@@ -400,7 +437,6 @@ export default {
     const eventData = ref([])
     const eventComparisonData = ref([])
 
-    // Map refs
     let map = null
     let markers = []
     let highlightedMarker = null
@@ -413,15 +449,6 @@ export default {
         
         return current.map(item => {
           const comp = comparisonMap.get(buildCompositeKey(item.city, item.country)) || {}
-          
-          if (current.indexOf(item) === 0) {
-            console.log('Session data sample:', {
-              city: item.city,
-              currentRate: item.sessionConversionRate,
-              compRate: comp.sessionConversionRate,
-              delta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate)
-            })
-          }
           
           return {
             ...item,
@@ -460,16 +487,6 @@ export default {
         return current.map(item => {
           const key = buildCompositeKey(item.channel, item.deviceCategory, item.campaignName)
           const comp = comparisonMap.get(key) || {}
-          
-          if (current.indexOf(item) === 0) {
-            console.log('Source data sample:', {
-              channel: item.channel,
-              currentRate: item.sessionConversionRate,
-              compRate: comp.sessionConversionRate,
-              hasMatch: comparisonMap.has(key),
-              delta: calculateDelta(item.sessionConversionRate, comp.sessionConversionRate)
-            })
-          }
           
           return {
             ...item,
@@ -583,7 +600,6 @@ export default {
     })
 
     const kpiData = computed(() => {
-      // Current period totals
       const totals = {
         revenue: sumBy(locationRevenueData.value, 'purchaseRevenue'),
         transactions: sumBy(locationRevenueData.value, 'transactions'),
@@ -597,7 +613,6 @@ export default {
       const avgConversionRate = avgBy(locationSessionData.value, 'sessionConversionRate')
       const avgBasketSize = avgBy(basketSizeData.value, 'avgRevenuePerTransaction')
 
-      // Comparison period totals
       let comparisonTotals = {
         revenue: 0, transactions: 0, conversions: 0, sessions: 0, conversionRate: 0, basketSize: 0
       }
@@ -661,135 +676,114 @@ export default {
     // ==================== API FUNCTIONS ====================
     const formatDateForAPI = (date) => date
 
-  const fetchData = async (endpoint) => {
-  const url = new URL(`${API_BASE}${endpoint}`)
-  url.searchParams.append('startDate', formatDateForAPI(dateRange.startDate))
-  url.searchParams.append('endDate', formatDateForAPI(dateRange.endDate))
-  
-  if (enableComparison.value) {
-    url.searchParams.append('compareStartDate', formatDateForAPI(comparisonRange.startDate))
-    url.searchParams.append('compareEndDate', formatDateForAPI(comparisonRange.endDate))
-  }
-  
-  console.log(`Fetching ${endpoint} with params:`, {
-    startDate: dateRange.startDate,
-    endDate: dateRange.endDate,
-    compareStartDate: enableComparison.value ? comparisonRange.startDate : null,
-    compareEndDate: enableComparison.value ? comparisonRange.endDate : null
-  })
-  
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Fetch failed: ${endpoint}`)
-  const data = await res.json()
-  
-  console.log(`Response from ${endpoint}:`, {
-    hasCurrent: !!data.currentPeriod,
-    currentLength: data.currentPeriod?.length,
-    hasComparison: !!data.comparisonPeriod,
-    comparisonLength: data.comparisonPeriod?.length
-  })
-  
-  return data
-}
+    const fetchData = async (endpoint) => {
+      const url = new URL(`${API_BASE}${endpoint}`)
+      url.searchParams.append('startDate', formatDateForAPI(dateRange.startDate))
+      url.searchParams.append('endDate', formatDateForAPI(dateRange.endDate))
+      
+      if (enableComparison.value) {
+        url.searchParams.append('compareStartDate', formatDateForAPI(comparisonRange.startDate))
+        url.searchParams.append('compareEndDate', formatDateForAPI(comparisonRange.endDate))
+      }
+      
+      // Add authentication headers
+      const headers = {
+        'x-username': username.value,
+        'x-password': password.value,
+        'Content-Type': 'application/json'
+      }
+      
+      const res = await fetch(url, { headers })
+      
+      if (!res.ok) {
+        if (res.status === 401) {
+          // Unauthorized - redirect to login
+          handleLogout()
+          throw new Error('Session expired')
+        }
+        throw new Error(`Fetch failed: ${endpoint}`)
+      }
+      
+      const data = await res.json()
+      return data
+    }
 
-const fetchAllData = async () => {
-  loading.value = true
-  
-  // Reset expanded states
-  expandedKPI.value = null
-  expandedEngagement.value = null
-  expandedPage.value = null
-  expandedBasket.value = null
-  expandedCity.value = null
-  
-  try {
-    const [
-      sessionResponse, 
-      revenueResponse, 
-      sourceResponse,
-      engagementResponse,
-      pageResponse,
-      basketResponse,
-      eventResponse
-    ] = await Promise.all([
-      fetchData('/analytics/conversions-by-location'),
-      fetchData('/analytics/revenue-by-location'),
-      fetchData('/analytics/conversions-by-source'),
-      fetchData('/analytics/engagement'),
-      fetchData('/analytics/page-hotspots'),
-      fetchData('/analytics/basket-size'),
-      fetchData('/analytics/conversions-by-event')
-    ])
-    
-    // ADD THIS DEBUG LOG
-    console.log('Engagement Response:', {
-      currentPeriod: engagementResponse.currentPeriod,
-      comparisonPeriod: engagementResponse.comparisonPeriod,
-      hasComparison: !!engagementResponse.comparisonPeriod,
-      comparisonLength: engagementResponse.comparisonPeriod?.length
-    })
-    
-    // Store raw comparison data
-    locationSessionComparison.value = sessionResponse.comparisonPeriod || []
-    locationRevenueComparison.value = revenueResponse.comparisonPeriod || []
-    sourceComparison.value = sourceResponse.comparisonPeriod || []
-    engagementComparison.value = engagementResponse.comparisonPeriod || [] // This should be populated
-    pageHotspotsComparison.value = pageResponse.comparisonPeriod || []
-    basketSizeComparison.value = basketResponse.comparisonPeriod || []
-    
-    // Process data with deltas using consolidated processors
-    locationSessionData.value = processors.session(
-      sessionResponse.currentPeriod || [], 
-      locationSessionComparison.value
-    )
-    
-    locationRevenueData.value = processors.revenue(
-      revenueResponse.currentPeriod || [], 
-      locationRevenueComparison.value
-    )
-    
-    sourceData.value = processors.source(
-      sourceResponse.currentPeriod || [], 
-      sourceComparison.value
-    )
-    
-    engagementData.value = processors.engagement(
-      engagementResponse.currentPeriod || [], 
-      engagementComparison.value
-    )
-    
-    pageHotspots.value = processors.pageHotspots(
-      pageResponse.currentPeriod || [], 
-      pageHotspotsComparison.value
-    )
-    
-    basketSizeData.value = processors.basketSize(
-      basketResponse.currentPeriod || [], 
-      basketSizeComparison.value
-    )
+    const fetchAllData = async () => {
+      if (!isAuthenticated.value) return
+      
+      loading.value = true
+      
+      expandedKPI.value = null
+      expandedEngagement.value = null
+      expandedPage.value = null
+      expandedBasket.value = null
+      expandedCity.value = null
+      
+      try {
+        const [
+          sessionResponse, 
+          revenueResponse, 
+          sourceResponse,
+          engagementResponse,
+          pageResponse,
+          basketResponse,
+          eventResponse
+        ] = await Promise.all([
+          fetchData('/analytics/conversions-by-location'),
+          fetchData('/analytics/revenue-by-location'),
+          fetchData('/analytics/conversions-by-source'),
+          fetchData('/analytics/engagement'),
+          fetchData('/analytics/page-hotspots'),
+          fetchData('/analytics/basket-size'),
+          fetchData('/analytics/conversions-by-event')
+        ])
+        
+        locationSessionComparison.value = sessionResponse.comparisonPeriod || []
+        locationRevenueComparison.value = revenueResponse.comparisonPeriod || []
+        sourceComparison.value = sourceResponse.comparisonPeriod || []
+        engagementComparison.value = engagementResponse.comparisonPeriod || []
+        pageHotspotsComparison.value = pageResponse.comparisonPeriod || []
+        basketSizeComparison.value = basketResponse.comparisonPeriod || []
+        
+        locationSessionData.value = processors.session(
+          sessionResponse.currentPeriod || [], 
+          locationSessionComparison.value
+        )
+        
+        locationRevenueData.value = processors.revenue(
+          revenueResponse.currentPeriod || [], 
+          locationRevenueComparison.value
+        )
+        
+        sourceData.value = processors.source(
+          sourceResponse.currentPeriod || [], 
+          sourceComparison.value
+        )
+        
+        engagementData.value = processors.engagement(
+          engagementResponse.currentPeriod || [], 
+          engagementComparison.value
+        )
+        
+        pageHotspots.value = processors.pageHotspots(
+          pageResponse.currentPeriod || [], 
+          pageHotspotsComparison.value
+        )
+        
+        basketSizeData.value = processors.basketSize(
+          basketResponse.currentPeriod || [], 
+          basketSizeComparison.value
+        )
 
-    // Store event data with comparison
-    eventData.value = eventResponse.currentPeriod || []
-    eventComparisonData.value = eventResponse.comparisonPeriod || []
-    
-    // Log summary
-    console.log('Data processing complete:', {
-      sessionItems: locationSessionData.value.length,
-      revenueItems: locationRevenueData.value.length,
-      sourceItems: sourceData.value.length,
-      sourceComparisonItems: sourceComparison.value.length,
-      engagementItems: engagementData.value.length,
-      engagementComparisonItems: engagementComparison.value.length, // Check this value
-      eventItems: eventData.value.length,
-      eventComparisonItems: eventComparisonData.value.length
-    })
-    
-  } catch (error) {
-    console.error('Failed to fetch analytics:', error)
-  } finally {
-    loading.value = false
-  }
-}
+        eventData.value = eventResponse.currentPeriod || []
+        eventComparisonData.value = eventResponse.comparisonPeriod || []
+        
+      } catch (error) {
+        console.error('Failed to fetch analytics:', error)
+      } finally {
+        loading.value = false
+      }
+    }
 
     // ==================== QUICK RANGE FUNCTIONS ====================
     const applyQuickRange = () => {
@@ -953,10 +947,26 @@ const fetchAllData = async () => {
       expandedCity.value = expandedCity.value === cityName ? null : cityName
     }
 
+    const handleDriverExpand = () => {
+      // Placeholder for driver expand handler
+    }
+
     // ==================== LIFECYCLE ====================
-    onMounted(fetchAllData)
+    onMounted(() => {
+      checkAuth()
+      if (isAuthenticated.value) {
+        fetchAllData()
+      }
+    })
 
     return {
+      // Auth
+      isAuthenticated,
+      username,
+      handleLoginSuccess,
+      handleLogout,
+      
+      // Original exports
       today,
       dateRange, 
       comparisonRange,
@@ -1003,6 +1013,7 @@ const fetchAllData = async () => {
       toggleExpandPage,
       toggleExpandBasket,
       toggleExpandCity,
+      handleDriverExpand,
       formatZAR,
       formatNumber, 
       formatPercent,
@@ -1072,6 +1083,14 @@ const fetchAllData = async () => {
   box-sizing: border-box;
 }
 
+.login-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
 .dashboard {
   font-family: 'Inter', sans-serif;
   background: var(--gray-100);
@@ -1090,7 +1109,14 @@ const fetchAllData = async () => {
   margin: 0 auto;
 }
 
-.header-content h1 {
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-6);
+}
+
+.header-top h1 {
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: var(--space-2);
@@ -1103,6 +1129,29 @@ const fetchAllData = async () => {
 .subtitle {
   color: #94a3b8;
   font-size: 1rem;
+}
+
+.logout-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logout-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.logout-button .material-symbols-outlined {
+  font-size: 1.2rem;
 }
 
 .dashboard-content {
@@ -1156,6 +1205,15 @@ const fetchAllData = async () => {
   
   .dashboard-content {
     padding: 0 var(--space-4);
+  }
+  
+  .header-top {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  
+  .header-top h1 {
+    font-size: 2rem;
   }
 }
 </style>
