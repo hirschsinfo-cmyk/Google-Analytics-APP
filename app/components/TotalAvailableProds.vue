@@ -26,7 +26,7 @@ export default {
     async fetchSkuCount() {
       try {
         // 🔹 Call your backend server endpoint
-        const response = await axios.get("https://google-analytics-api-1.onrender.com/magento/skus");
+        const response = await axios.get("https://conversions-api-0e62e1f06b26.herokuapp.com/magento/skus");
 
         // Server returns { totalSkus: number }
         this.totalSkus = response.data.totalSkus || 0;

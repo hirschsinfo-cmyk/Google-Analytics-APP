@@ -269,7 +269,7 @@ export default {
     }
 
     // ==================== CONSTANTS ====================
-    const API_BASE = import.meta.env.VITE_API_BASE || 'https://conversions-api-0e62e1f06b26.herokuapp.com'//'https://google-analytics-api-1.onrender.com' //'http://localhost:3001'
+    const API_BASE = import.meta.env.VITE_API_BASE || 'https://conversions-api-0e62e1f06b26.herokuapp.com' //'https://google-analytics-api-1.onrender.com' //'http://localhost:3001'
     
     const CITY_COORDINATES = {
       'johannesburg': { lat: -26.2041, lng: 28.0473, name: 'Johannesburg' },

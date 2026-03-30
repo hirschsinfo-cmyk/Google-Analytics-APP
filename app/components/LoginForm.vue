@@ -113,7 +113,7 @@ const handleLogin = async () => {
   loading.value = true
 
   try {
-    const response = await fetch('https://google-analytics-api-1.onrender.com/login', {
+    const response = await fetch('https://conversions-api-0e62e1f06b26.herokuapp.com/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
