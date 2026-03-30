@@ -66,6 +66,15 @@
         :comparisonEndDate="comparisonRange.endDate"
       />
 
+<PageDetailsSection
+  :pageData="pageDetailsData"
+  :loading="pageDetailsLoading"
+  :enableComparison="enableComparison"
+  :comparisonStartDate="comparisonRange.startDate"
+  :comparisonEndDate="comparisonRange.endDate"
+  @search="fetchPageDetails"
+/>
+
       <!-- Performance Drivers Component -->
       <PerformanceDrivers
         :sessionData="locationSessionData"
@@ -186,7 +195,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import DateRangeSelector from './DateRangeSelector.vue'
 import KPIGrid from './KPIGrid.vue'
 import CustomerType from './CustomerType.vue'
@@ -202,6 +211,7 @@ import DataTables from './DataTables.vue'
 import TotalAvailableProds from './TotalAvailableProds.vue'
 import EventBreakdown from './EventBreakdown.vue'
 import LoginForm from './LoginForm.vue'
+import PageDetailsSection from './PageDetailsSection.vue'
 
 export default {
   name: 'Dashboard',
@@ -209,6 +219,7 @@ export default {
     DateRangeSelector,
     KPIGrid,
     CustomerType,
+    PageDetailsSection,
     PerformanceDrivers,
     EngagementSection,
     PageHotspots,
@@ -226,9 +237,8 @@ export default {
     // ==================== AUTHENTICATION STATE ====================
     const isAuthenticated = ref(false)
     const username = ref('')
-    const password = ref('') // Store password for API calls
+    const password = ref('')
 
-    // Check authentication status on mount
     const checkAuth = () => {
       const auth = localStorage.getItem('isAuthenticated') === 'true'
       const user = localStorage.getItem('username') || ''
@@ -238,15 +248,13 @@ export default {
       password.value = pass
     }
 
-    // Handle successful login
     const handleLoginSuccess = (user) => {
       isAuthenticated.value = true
       username.value = user
       password.value = localStorage.getItem('password') || ''
-      fetchAllData() // Fetch data after login
+      fetchAllData()
     }
 
-    // Handle logout
     const handleLogout = () => {
       localStorage.removeItem('isAuthenticated')
       localStorage.removeItem('username')
@@ -256,13 +264,12 @@ export default {
       password.value = ''
     }
 
-    // Listen for login state changes from other tabs/windows
     if (process.client) {
       window.addEventListener('login-state-changed', checkAuth)
     }
 
     // ==================== CONSTANTS ====================
-    const API_BASE = import.meta.env.VITE_API_BASE ||  'https://google-analytics-api-1.onrender.com' //'http://localhost:3001'
+    const API_BASE = import.meta.env.VITE_API_BASE || 'https://google-analytics-api-1.onrender.com' //'http://localhost:3001'
     
     const CITY_COORDINATES = {
       'johannesburg': { lat: -26.2041, lng: 28.0473, name: 'Johannesburg' },
@@ -436,6 +443,10 @@ export default {
     const basketSizeComparison = ref([])
     const eventData = ref([])
     const eventComparisonData = ref([])
+    
+    // Page Details specific state
+    const pageDetailsData = ref([])
+    const pageDetailsLoading = ref(false)
 
     let map = null
     let markers = []
@@ -673,6 +684,131 @@ export default {
              eventData.value.length > 0
     })
 
+// ==================== PAGE DETAILS API FUNCTION ====================
+// ==================== PAGE DETAILS API FUNCTION ====================
+const fetchPageDetails = async (pageUrl) => {
+  if (!pageUrl) return;
+  
+  pageDetailsLoading.value = true;
+  
+  try {
+    console.log('Fetching page details with:');
+    console.log('  Main period:', dateRange.startDate, 'to', dateRange.endDate);
+    console.log('  Comparison enabled:', enableComparison.value);
+    if (enableComparison.value) {
+      console.log('  Comparison period:', comparisonRange.startDate, 'to', comparisonRange.endDate);
+    }
+    
+    const params = new URLSearchParams();
+    params.set('pageUrl', pageUrl);
+    params.set('startDate', dateRange.startDate);
+    params.set('endDate', dateRange.endDate);
+
+    if (enableComparison.value && comparisonRange.startDate && comparisonRange.endDate) {
+      params.set('compareStartDate', comparisonRange.startDate);
+      params.set('compareEndDate', comparisonRange.endDate);
+      console.log('Added comparison params to URL');
+    }
+    
+    const url = `${API_BASE}/analytics/page-details?${params.toString()}`;
+    console.log('Full URL:', url);
+    
+    const response = await fetch(url, {
+      headers: {
+        'x-username': username.value,
+        'x-password': password.value
+      }
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        handleLogout();
+        throw new Error('Session expired');
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('API Response:', JSON.stringify(data, null, 2));
+    
+    let processedData = [];
+    
+    // Use mergedResult if available (has pre-calculated deltas)
+    if (data.mergedResult && data.mergedResult.length > 0) {
+      console.log('✅ Using mergedResult');
+      // Convert string deltas to numbers for consistent handling
+      processedData = data.mergedResult.map(item => ({
+        ...item,
+        viewsDelta: item.viewsDelta ? parseFloat(item.viewsDelta) : null,
+        activeUsersDelta: item.activeUsersDelta ? parseFloat(item.activeUsersDelta) : null,
+        durationDelta: item.durationDelta ? parseFloat(item.durationDelta) : null,
+        engagementRateDelta: item.engagementRateDelta ? parseFloat(item.engagementRateDelta) : null,
+        // Ensure numeric values are numbers
+        views: Number(item.views),
+        activeUsers: Number(item.activeUsers),
+        avgSessionDuration: Number(item.avgSessionDuration),
+        engagementRate: Number(item.engagementRate),
+        // If comparisonData exists, ensure its values are also numbers
+        comparisonData: item.comparisonData ? {
+          views: Number(item.comparisonData.views),
+          activeUsers: Number(item.comparisonData.activeUsers),
+          avgSessionDuration: Number(item.comparisonData.avgSessionDuration),
+          engagementRate: Number(item.comparisonData.engagementRate)
+        } : null
+      }));
+    } 
+    // Fallback to result format (no comparison)
+    else if (data.result && data.result.length > 0) {
+      console.log('✅ Using result (no comparison)');
+      processedData = data.result.map(item => ({
+        ...item,
+        views: Number(item.views),
+        activeUsers: Number(item.activeUsers),
+        avgSessionDuration: Number(item.avgSessionDuration),
+        engagementRate: Number(item.engagementRate),
+        comparisonData: null,
+        viewsDelta: null,
+        activeUsersDelta: null,
+        durationDelta: null,
+        engagementRateDelta: null
+      }));
+    }
+    // Fallback to currentPeriod format
+    else if (data.currentPeriod && data.currentPeriod.length > 0) {
+      console.log('✅ Using currentPeriod');
+      processedData = data.currentPeriod.map(item => ({
+        ...item,
+        views: Number(item.views),
+        activeUsers: Number(item.activeUsers),
+        avgSessionDuration: Number(item.avgSessionDuration),
+        engagementRate: Number(item.engagementRate),
+        comparisonData: data.comparisonPeriod ? data.comparisonPeriod[0] : null,
+        viewsDelta: data.comparisonPeriod ? ((item.views - data.comparisonPeriod[0].views) / data.comparisonPeriod[0].views * 100) : null,
+        activeUsersDelta: data.comparisonPeriod ? ((item.activeUsers - data.comparisonPeriod[0].activeUsers) / data.comparisonPeriod[0].activeUsers * 100) : null,
+        durationDelta: data.comparisonPeriod ? ((item.avgSessionDuration - data.comparisonPeriod[0].avgSessionDuration) / data.comparisonPeriod[0].avgSessionDuration * 100) : null,
+        engagementRateDelta: data.comparisonPeriod ? ((item.engagementRate - data.comparisonPeriod[0].engagementRate) / data.comparisonPeriod[0].engagementRate * 100) : null
+      }));
+    }
+    
+    console.log('🎯 Final processed data:', processedData.length, 'items');
+    if (processedData.length > 0) {
+      console.log('📋 First item:', {
+        pagePath: processedData[0].pagePath,
+        views: processedData[0].views,
+        viewsDelta: processedData[0].viewsDelta,
+        hasComparisonData: !!processedData[0].comparisonData
+      });
+    }
+    
+    pageDetailsData.value = processedData;
+    
+  } catch (error) {
+    console.error('❌ Error fetching page details:', error);
+    pageDetailsData.value = [];
+  } finally {
+    pageDetailsLoading.value = false;
+  }
+};
     // ==================== API FUNCTIONS ====================
     const formatDateForAPI = (date) => date
 
@@ -686,7 +822,6 @@ export default {
         url.searchParams.append('compareEndDate', formatDateForAPI(comparisonRange.endDate))
       }
       
-      // Add authentication headers
       const headers = {
         'x-username': username.value,
         'x-password': password.value,
@@ -697,7 +832,6 @@ export default {
       
       if (!res.ok) {
         if (res.status === 401) {
-          // Unauthorized - redirect to login
           handleLogout()
           throw new Error('Session expired')
         }
@@ -951,6 +1085,17 @@ export default {
       // Placeholder for driver expand handler
     }
 
+    // ==================== WATCHERS ====================
+    // Watch for date changes to refetch page details
+    watch([dateRange, comparisonRange, enableComparison], () => {
+      // If we have page data loaded, refetch when dates change
+      if (pageDetailsData.value.length > 0 && pageDetailsData.value[0]?.pagePath) {
+        const currentPageUrl = pageDetailsData.value[0].pagePath
+        console.log('Dates changed, refetching page details for:', currentPageUrl)
+        fetchPageDetails(currentPageUrl)
+      }
+    }, { deep: true })
+
     // ==================== LIFECYCLE ====================
     onMounted(() => {
       checkAuth()
@@ -963,8 +1108,14 @@ export default {
       // Auth
       isAuthenticated,
       username,
+      password,
       handleLoginSuccess,
       handleLogout,
+      
+      // Page Details
+      pageDetailsData,
+      pageDetailsLoading,
+      fetchPageDetails,
       
       // Original exports
       today,
