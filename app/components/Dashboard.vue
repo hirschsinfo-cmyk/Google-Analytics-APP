@@ -11,7 +11,7 @@
           <div>
             <h1>Hirsch's Conversion Intelligence</h1>
             <p class="subtitle">
-              Track sales, understand why conversions change, and see where those changes happen geographically
+              Track sales, understand why conversions change, and see where those changes happen geographically:
             </p>
           </div>
           <button @click="handleLogout" class="logout-button">
