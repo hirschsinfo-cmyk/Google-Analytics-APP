@@ -66,14 +66,25 @@
         :comparisonEndDate="comparisonRange.endDate"
       />
 
-<PageDetailsSection
-  :pageData="pageDetailsData"
-  :loading="pageDetailsLoading"
-  :enableComparison="enableComparison"
-  :comparisonStartDate="comparisonRange.startDate"
-  :comparisonEndDate="comparisonRange.endDate"
-  @search="fetchPageDetails"
-/>
+      <!-- Page Details Section -->
+      <PageDetailsSection
+        :pageData="pageDetailsData"
+        :loading="pageDetailsLoading"
+        :enableComparison="enableComparison"
+        :comparisonStartDate="comparisonRange.startDate"
+        :comparisonEndDate="comparisonRange.endDate"
+        @search="fetchPageDetails"
+      />
+
+      <!-- Campaign Details Section -->
+      <CampaignDetailsSection
+        :campaignData="campaignDetailsData"
+        :loading="campaignDetailsLoading"
+        :enableComparison="enableComparison"
+        :comparisonStartDate="comparisonRange.startDate"
+        :comparisonEndDate="comparisonRange.endDate"
+        @search="fetchCampaignDetails"
+      />
 
       <!-- Performance Drivers Component -->
       <PerformanceDrivers
@@ -212,6 +223,7 @@ import TotalAvailableProds from './TotalAvailableProds.vue'
 import EventBreakdown from './EventBreakdown.vue'
 import LoginForm from './LoginForm.vue'
 import PageDetailsSection from './PageDetailsSection.vue'
+import CampaignDetailsSection from './CampaignDetailsSection.vue'
 
 export default {
   name: 'Dashboard',
@@ -220,6 +232,7 @@ export default {
     KPIGrid,
     CustomerType,
     PageDetailsSection,
+    CampaignDetailsSection,
     PerformanceDrivers,
     EngagementSection,
     PageHotspots,
@@ -448,6 +461,10 @@ export default {
     // Page Details specific state
     const pageDetailsData = ref([])
     const pageDetailsLoading = ref(false)
+
+    // Campaign Details specific state
+    const campaignDetailsData = ref([])
+    const campaignDetailsLoading = ref(false)
 
     let map = null
     let markers = []
@@ -685,131 +702,219 @@ export default {
              eventData.value.length > 0
     })
 
-// ==================== PAGE DETAILS API FUNCTION ====================
-// ==================== PAGE DETAILS API FUNCTION ====================
-const fetchPageDetails = async (pageUrl) => {
-  if (!pageUrl) return;
-  
-  pageDetailsLoading.value = true;
-  
-  try {
-    console.log('Fetching page details with:');
-    console.log('  Main period:', dateRange.startDate, 'to', dateRange.endDate);
-    console.log('  Comparison enabled:', enableComparison.value);
-    if (enableComparison.value) {
-      console.log('  Comparison period:', comparisonRange.startDate, 'to', comparisonRange.endDate);
-    }
-    
-    const params = new URLSearchParams();
-    params.set('pageUrl', pageUrl);
-    params.set('startDate', dateRange.startDate);
-    params.set('endDate', dateRange.endDate);
+    // ==================== PAGE DETAILS API FUNCTION ====================
+    const fetchPageDetails = async (pageUrl) => {
+      if (!pageUrl) return;
+      
+      pageDetailsLoading.value = true;
+      
+      try {
+        console.log('Fetching page details with:');
+        console.log('  Main period:', dateRange.startDate, 'to', dateRange.endDate);
+        console.log('  Comparison enabled:', enableComparison.value);
+        if (enableComparison.value) {
+          console.log('  Comparison period:', comparisonRange.startDate, 'to', comparisonRange.endDate);
+        }
+        
+        const params = new URLSearchParams();
+        params.set('pageUrl', pageUrl);
+        params.set('startDate', dateRange.startDate);
+        params.set('endDate', dateRange.endDate);
 
-    if (enableComparison.value && comparisonRange.startDate && comparisonRange.endDate) {
-      params.set('compareStartDate', comparisonRange.startDate);
-      params.set('compareEndDate', comparisonRange.endDate);
-      console.log('Added comparison params to URL');
-    }
-    
-    const url = `${API_BASE}/analytics/page-details?${params.toString()}`;
-    console.log('Full URL:', url);
-    
-    const response = await fetch(url, {
-      headers: {
-        'x-username': username.value,
-        'x-password': password.value
+        if (enableComparison.value && comparisonRange.startDate && comparisonRange.endDate) {
+          params.set('compareStartDate', comparisonRange.startDate);
+          params.set('compareEndDate', comparisonRange.endDate);
+          console.log('Added comparison params to URL');
+        }
+        
+        const url = `${API_BASE}/analytics/page-details?${params.toString()}`;
+        console.log('Full URL:', url);
+        
+        const response = await fetch(url, {
+          headers: {
+            'x-username': username.value,
+            'x-password': password.value
+          }
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            handleLogout();
+            throw new Error('Session expired');
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('API Response:', JSON.stringify(data, null, 2));
+        
+        let processedData = [];
+        
+        // Use mergedResult if available (has pre-calculated deltas)
+        if (data.mergedResult && data.mergedResult.length > 0) {
+          console.log('✅ Using mergedResult');
+          // Convert string deltas to numbers for consistent handling
+          processedData = data.mergedResult.map(item => ({
+            ...item,
+            viewsDelta: item.viewsDelta ? parseFloat(item.viewsDelta) : null,
+            activeUsersDelta: item.activeUsersDelta ? parseFloat(item.activeUsersDelta) : null,
+            durationDelta: item.durationDelta ? parseFloat(item.durationDelta) : null,
+            engagementRateDelta: item.engagementRateDelta ? parseFloat(item.engagementRateDelta) : null,
+            // Ensure numeric values are numbers
+            views: Number(item.views),
+            activeUsers: Number(item.activeUsers),
+            avgSessionDuration: Number(item.avgSessionDuration),
+            engagementRate: Number(item.engagementRate),
+            // If comparisonData exists, ensure its values are also numbers
+            comparisonData: item.comparisonData ? {
+              views: Number(item.comparisonData.views),
+              activeUsers: Number(item.comparisonData.activeUsers),
+              avgSessionDuration: Number(item.comparisonData.avgSessionDuration),
+              engagementRate: Number(item.comparisonData.engagementRate)
+            } : null
+          }));
+        } 
+        // Fallback to result format (no comparison)
+        else if (data.result && data.result.length > 0) {
+          console.log('✅ Using result (no comparison)');
+          processedData = data.result.map(item => ({
+            ...item,
+            views: Number(item.views),
+            activeUsers: Number(item.activeUsers),
+            avgSessionDuration: Number(item.avgSessionDuration),
+            engagementRate: Number(item.engagementRate),
+            comparisonData: null,
+            viewsDelta: null,
+            activeUsersDelta: null,
+            durationDelta: null,
+            engagementRateDelta: null
+          }));
+        }
+        // Fallback to currentPeriod format
+        else if (data.currentPeriod && data.currentPeriod.length > 0) {
+          console.log('✅ Using currentPeriod');
+          processedData = data.currentPeriod.map(item => ({
+            ...item,
+            views: Number(item.views),
+            activeUsers: Number(item.activeUsers),
+            avgSessionDuration: Number(item.avgSessionDuration),
+            engagementRate: Number(item.engagementRate),
+            comparisonData: data.comparisonPeriod ? data.comparisonPeriod[0] : null,
+            viewsDelta: data.comparisonPeriod ? ((item.views - data.comparisonPeriod[0].views) / data.comparisonPeriod[0].views * 100) : null,
+            activeUsersDelta: data.comparisonPeriod ? ((item.activeUsers - data.comparisonPeriod[0].activeUsers) / data.comparisonPeriod[0].activeUsers * 100) : null,
+            durationDelta: data.comparisonPeriod ? ((item.avgSessionDuration - data.comparisonPeriod[0].avgSessionDuration) / data.comparisonPeriod[0].avgSessionDuration * 100) : null,
+            engagementRateDelta: data.comparisonPeriod ? ((item.engagementRate - data.comparisonPeriod[0].engagementRate) / data.comparisonPeriod[0].engagementRate * 100) : null
+          }));
+        }
+        
+        console.log('🎯 Final processed data:', processedData.length, 'items');
+        if (processedData.length > 0) {
+          console.log('📋 First item:', {
+            pagePath: processedData[0].pagePath,
+            views: processedData[0].views,
+            viewsDelta: processedData[0].viewsDelta,
+            hasComparisonData: !!processedData[0].comparisonData
+          });
+        }
+        
+        pageDetailsData.value = processedData;
+        
+      } catch (error) {
+        console.error('❌ Error fetching page details:', error);
+        pageDetailsData.value = [];
+      } finally {
+        pageDetailsLoading.value = false;
       }
-    });
-    
-    if (!response.ok) {
-      if (response.status === 401) {
-        handleLogout();
-        throw new Error('Session expired');
+    };
+
+    // ==================== CAMPAIGN DETAILS API FUNCTION ====================
+    const fetchCampaignDetails = async (campaignName) => {
+      if (!campaignName) return;
+      
+      campaignDetailsLoading.value = true;
+      
+      try {
+        console.log('Fetching campaign details for:', campaignName);
+        console.log('  Main period:', dateRange.startDate, 'to', dateRange.endDate);
+        console.log('  Comparison enabled:', enableComparison.value);
+        if (enableComparison.value) {
+          console.log('  Comparison period:', comparisonRange.startDate, 'to', comparisonRange.endDate);
+        }
+        
+        const params = new URLSearchParams();
+        params.set('campaignName', campaignName);
+        params.set('startDate', dateRange.startDate);
+        params.set('endDate', dateRange.endDate);
+
+        if (enableComparison.value && comparisonRange.startDate && comparisonRange.endDate) {
+          params.set('compareStartDate', comparisonRange.startDate);
+          params.set('compareEndDate', comparisonRange.endDate);
+        }
+        
+        const url = `${API_BASE}/analytics/campaign-details?${params.toString()}`;
+        
+        const response = await fetch(url, {
+          headers: {
+            'x-username': username.value,
+            'x-password': password.value
+          }
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            handleLogout();
+            throw new Error('Session expired');
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        let processedData = [];
+        
+        if (data.mergedResult && data.mergedResult.length > 0) {
+          processedData = data.mergedResult.map(item => ({
+            ...item,
+            conversionsDelta: item.conversionsDelta ? parseFloat(item.conversionsDelta) : null,
+            sessionsDelta: item.sessionsDelta ? parseFloat(item.sessionsDelta) : null,
+            activeUsersDelta: item.activeUsersDelta ? parseFloat(item.activeUsersDelta) : null,
+            conversionRateDelta: item.conversionRateDelta ? parseFloat(item.conversionRateDelta) : null,
+            conversions: Number(item.conversions),
+            sessions: Number(item.sessions),
+            activeUsers: Number(item.activeUsers),
+            sessionConversionRate: Number(item.sessionConversionRate),
+            comparisonData: item.comparisonData ? {
+              conversions: Number(item.comparisonData.conversions),
+              sessions: Number(item.comparisonData.sessions),
+              activeUsers: Number(item.comparisonData.activeUsers),
+              sessionConversionRate: Number(item.comparisonData.sessionConversionRate)
+            } : null
+          }));
+        } else if (data.currentPeriod && data.currentPeriod.length > 0) {
+          processedData = data.currentPeriod.map(item => ({
+            ...item,
+            conversions: Number(item.conversions),
+            sessions: Number(item.sessions),
+            activeUsers: Number(item.activeUsers),
+            sessionConversionRate: Number(item.sessionConversionRate),
+            comparisonData: data.comparisonPeriod ? data.comparisonPeriod[0] : null,
+            conversionsDelta: data.comparisonPeriod ? ((item.conversions - data.comparisonPeriod[0].conversions) / data.comparisonPeriod[0].conversions * 100) : null,
+            sessionsDelta: data.comparisonPeriod ? ((item.sessions - data.comparisonPeriod[0].sessions) / data.comparisonPeriod[0].sessions * 100) : null,
+            activeUsersDelta: data.comparisonPeriod ? ((item.activeUsers - data.comparisonPeriod[0].activeUsers) / data.comparisonPeriod[0].activeUsers * 100) : null,
+            conversionRateDelta: data.comparisonPeriod ? ((item.sessionConversionRate - data.comparisonPeriod[0].sessionConversionRate) / data.comparisonPeriod[0].sessionConversionRate * 100) : null
+          }));
+        }
+        
+        campaignDetailsData.value = processedData;
+        
+      } catch (error) {
+        console.error('Error fetching campaign details:', error);
+        campaignDetailsData.value = [];
+      } finally {
+        campaignDetailsLoading.value = false;
       }
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('API Response:', JSON.stringify(data, null, 2));
-    
-    let processedData = [];
-    
-    // Use mergedResult if available (has pre-calculated deltas)
-    if (data.mergedResult && data.mergedResult.length > 0) {
-      console.log('✅ Using mergedResult');
-      // Convert string deltas to numbers for consistent handling
-      processedData = data.mergedResult.map(item => ({
-        ...item,
-        viewsDelta: item.viewsDelta ? parseFloat(item.viewsDelta) : null,
-        activeUsersDelta: item.activeUsersDelta ? parseFloat(item.activeUsersDelta) : null,
-        durationDelta: item.durationDelta ? parseFloat(item.durationDelta) : null,
-        engagementRateDelta: item.engagementRateDelta ? parseFloat(item.engagementRateDelta) : null,
-        // Ensure numeric values are numbers
-        views: Number(item.views),
-        activeUsers: Number(item.activeUsers),
-        avgSessionDuration: Number(item.avgSessionDuration),
-        engagementRate: Number(item.engagementRate),
-        // If comparisonData exists, ensure its values are also numbers
-        comparisonData: item.comparisonData ? {
-          views: Number(item.comparisonData.views),
-          activeUsers: Number(item.comparisonData.activeUsers),
-          avgSessionDuration: Number(item.comparisonData.avgSessionDuration),
-          engagementRate: Number(item.comparisonData.engagementRate)
-        } : null
-      }));
-    } 
-    // Fallback to result format (no comparison)
-    else if (data.result && data.result.length > 0) {
-      console.log('✅ Using result (no comparison)');
-      processedData = data.result.map(item => ({
-        ...item,
-        views: Number(item.views),
-        activeUsers: Number(item.activeUsers),
-        avgSessionDuration: Number(item.avgSessionDuration),
-        engagementRate: Number(item.engagementRate),
-        comparisonData: null,
-        viewsDelta: null,
-        activeUsersDelta: null,
-        durationDelta: null,
-        engagementRateDelta: null
-      }));
-    }
-    // Fallback to currentPeriod format
-    else if (data.currentPeriod && data.currentPeriod.length > 0) {
-      console.log('✅ Using currentPeriod');
-      processedData = data.currentPeriod.map(item => ({
-        ...item,
-        views: Number(item.views),
-        activeUsers: Number(item.activeUsers),
-        avgSessionDuration: Number(item.avgSessionDuration),
-        engagementRate: Number(item.engagementRate),
-        comparisonData: data.comparisonPeriod ? data.comparisonPeriod[0] : null,
-        viewsDelta: data.comparisonPeriod ? ((item.views - data.comparisonPeriod[0].views) / data.comparisonPeriod[0].views * 100) : null,
-        activeUsersDelta: data.comparisonPeriod ? ((item.activeUsers - data.comparisonPeriod[0].activeUsers) / data.comparisonPeriod[0].activeUsers * 100) : null,
-        durationDelta: data.comparisonPeriod ? ((item.avgSessionDuration - data.comparisonPeriod[0].avgSessionDuration) / data.comparisonPeriod[0].avgSessionDuration * 100) : null,
-        engagementRateDelta: data.comparisonPeriod ? ((item.engagementRate - data.comparisonPeriod[0].engagementRate) / data.comparisonPeriod[0].engagementRate * 100) : null
-      }));
-    }
-    
-    console.log('🎯 Final processed data:', processedData.length, 'items');
-    if (processedData.length > 0) {
-      console.log('📋 First item:', {
-        pagePath: processedData[0].pagePath,
-        views: processedData[0].views,
-        viewsDelta: processedData[0].viewsDelta,
-        hasComparisonData: !!processedData[0].comparisonData
-      });
-    }
-    
-    pageDetailsData.value = processedData;
-    
-  } catch (error) {
-    console.error('❌ Error fetching page details:', error);
-    pageDetailsData.value = [];
-  } finally {
-    pageDetailsLoading.value = false;
-  }
-};
+    };
+
     // ==================== API FUNCTIONS ====================
     const formatDateForAPI = (date) => date
 
@@ -1095,6 +1200,12 @@ const fetchPageDetails = async (pageUrl) => {
         console.log('Dates changed, refetching page details for:', currentPageUrl)
         fetchPageDetails(currentPageUrl)
       }
+      // If we have campaign data loaded, refetch when dates change
+      if (campaignDetailsData.value.length > 0 && campaignDetailsData.value[0]?.campaignName) {
+        const currentCampaign = campaignDetailsData.value[0].campaignName
+        console.log('Dates changed, refetching campaign details for:', currentCampaign)
+        fetchCampaignDetails(currentCampaign)
+      }
     }, { deep: true })
 
     // ==================== LIFECYCLE ====================
@@ -1117,6 +1228,11 @@ const fetchPageDetails = async (pageUrl) => {
       pageDetailsData,
       pageDetailsLoading,
       fetchPageDetails,
+      
+      // Campaign Details
+      campaignDetailsData,
+      campaignDetailsLoading,
+      fetchCampaignDetails,
       
       // Original exports
       today,
