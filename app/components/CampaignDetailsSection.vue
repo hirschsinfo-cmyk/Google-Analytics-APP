@@ -64,7 +64,7 @@
           </button>
         </div>
         
-        <div class="campaign-hint" v-if="!campaignData.length && localCampaignName && !loading && !loading">
+        <div class="campaign-hint" v-if="!campaignData.length && localCampaignName && !loading">
           <span class="material-symbols-outlined">info</span>
           <span>No data found for this campaign. Try a different campaign name or check spelling.</span>
         </div>
@@ -318,8 +318,10 @@ export default {
     const formatNumber = (value) =>
       value == null || isNaN(value) ? '0' : new Intl.NumberFormat('en-ZA').format(value);
 
-    const formatPercentage = (value) =>
-      value == null || isNaN(value) ? '0%' : `${(value * 100).toFixed(1)}%`;
+    const formatPercentage = (value) => {
+      if (value == null || isNaN(value)) return '0%';
+      return `${(value * 100).toFixed(2)}%`;
+    };
 
     const formatDelta = (delta) => {
       if (delta == null || isNaN(delta)) return '—';
@@ -327,8 +329,10 @@ export default {
       return `${sign}${Math.abs(delta).toFixed(1)}%`;
     };
 
-    const getDeltaClass = (delta) =>
-      delta > 0 ? 'positive' : delta < 0 ? 'negative' : 'neutral';
+    const getDeltaClass = (delta) => {
+      if (delta == null || isNaN(delta)) return 'neutral';
+      return delta > 0 ? 'positive' : delta < 0 ? 'negative' : 'neutral';
+    };
 
     const truncateString = (str, maxLength) => {
       if (!str) return str;
@@ -337,7 +341,7 @@ export default {
 
     const THRESHOLD = 15;
     const getPerformanceIcon = (campaign) => {
-      if (!campaign.conversionsDelta) return 'trending_up';
+      if (!campaign.conversionsDelta) return 'info';
       if (campaign.conversionsDelta > THRESHOLD) return 'trending_up';
       if (campaign.conversionsDelta < -THRESHOLD) return 'trending_down';
       if (campaign.conversionRateDelta > THRESHOLD) return 'trending_up';
@@ -353,7 +357,9 @@ export default {
     };
 
     const getPerformanceMessage = (campaign) => {
-      if (!campaign.conversionsDelta) return 'No comparison data available';
+      if (!campaign.conversionsDelta) {
+        return `📊 Currently: ${formatNumber(campaign.conversions)} conversions, ${formatPercentage(campaign.sessionConversionRate)} conversion rate`;
+      }
       
       if (campaign.conversionsDelta > THRESHOLD) {
         return `🚀 Conversions increased by ${formatDelta(campaign.conversionsDelta)} with ${formatDelta(campaign.conversionRateDelta)} higher conversion rate`;
@@ -373,14 +379,24 @@ export default {
     };
 
     const getPerformanceWidth = (campaign) => {
-      if (!campaign.conversionsDelta) return '50%';
+      // If no delta data, use conversion rate for progress bar
+      if (!campaign.conversionsDelta) {
+        const rate = Math.min(campaign.sessionConversionRate * 100, 100);
+        return `${rate}%`;
+      }
       // Normalize delta to 0-100% range (capped at +/-50%)
       const normalized = Math.min(Math.max((campaign.conversionsDelta + 50) / 100, 0), 100);
       return `${normalized}%`;
     };
 
     const getPerformanceSummary = (campaign) => {
-      if (!campaign.conversionsDelta) return 'Performance data pending';
+      if (!campaign.conversionsDelta) {
+        const rate = campaign.sessionConversionRate;
+        if (rate === 0) return 'No conversions yet';
+        if (rate < 0.005) return 'Low conversion rate';
+        if (rate < 0.02) return 'Moderate conversion rate';
+        return 'Good conversion rate';
+      }
       if (campaign.conversionsDelta > THRESHOLD) return 'Strong growth';
       if (campaign.conversionsDelta < -THRESHOLD) return 'Needs attention';
       return 'Stable performance';
@@ -532,7 +548,6 @@ export default {
   font-size: 0.875rem;
   transition: all 0.2s;
   background: var(--gray-50);
-  font-family: monospace;
 }
 
 .campaign-input:focus {
