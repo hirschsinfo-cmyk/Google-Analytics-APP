@@ -38,7 +38,7 @@
     </header>
 
     <!-- SKU Counter Component -->
-    <TotalAvailableProds />
+
 
     <!-- Loading Skeleton -->
     <div v-if="loading" class="loading-skeleton">
@@ -50,13 +50,16 @@
 
     <div v-else class="dashboard-content">
       <!-- KPI Grid Component -->
+
+
       <KPIGrid
         :kpiData="kpiData"
         :enableComparison="enableComparison"
         :expandedKPI="expandedKPI"
         @toggleExpand="toggleExpandKPI"
       />
-
+      
+      <TotalAvailableProds />
       <!-- Customer Type Component -->
       <CustomerType 
         :engagementData="engagementData"
