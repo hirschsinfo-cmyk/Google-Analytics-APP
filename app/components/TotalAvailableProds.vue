@@ -40,7 +40,7 @@ export default {
     async fetchSkuCount() {
       try {
         const response = await axios.get(
-          "https://conversions-api-0e62e1f06b26.herokuapp.com/magento/skus"
+          "https://conversions-api-0e62e1f06b26.herokuapp.com/magento/skus-live" // ✅ updated
         );
         this.totalSkus = response.data.totalSkus || 0;
       } catch (err) {

@@ -59,7 +59,11 @@
         @toggleExpand="toggleExpandKPI"
       />
       
-      <TotalAvailableProds />
+    <TotalAvailableProds 
+  :startDate="dateRange.startDate"
+  :endDate="dateRange.endDate"
+/>
+
       <!-- Customer Type Component -->
       <CustomerType 
         :engagementData="engagementData"
