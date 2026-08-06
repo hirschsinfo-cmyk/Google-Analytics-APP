@@ -20,6 +20,8 @@
 import axios from "axios";
 import { Chart } from "chart.js/auto";
 
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://conversions-api-0e62e1f06b26.herokuapp.com'
+
 export default {
   name: "SkuCounter",
   data() {
@@ -37,14 +39,23 @@ export default {
     this.renderChart();
   },
   methods: {
+    authHeaders() {
+      return {
+        'x-username': localStorage.getItem('username') || '',
+        'x-password': localStorage.getItem('password') || ''
+      }
+    },
     async fetchSkuCount() {
       try {
         const response = await axios.get(
-          "https://conversions-api-0e62e1f06b26.herokuapp.com/magento/skus-live" // ✅ updated
+          `${API_BASE}/magento/skus-live`,
+          { headers: this.authHeaders() }
         );
         this.totalSkus = response.data.totalSkus || 0;
       } catch (err) {
-        this.error = err.message || "Failed to fetch SKU count";
+        this.error = err.response?.status === 401
+          ? "Session expired"
+          : (err.message || "Failed to fetch SKU count");
       } finally {
         this.loading = false;
       }
@@ -52,11 +63,14 @@ export default {
     async fetchHistory() {
       try {
         const response = await axios.get(
-          "https://conversions-api-0e62e1f06b26.herokuapp.com/magento/sku-history"
+          `${API_BASE}/magento/sku-history`,
+          { headers: this.authHeaders() }
         );
         this.history = response.data;
       } catch (err) {
-        this.error = err.message || "Failed to fetch SKU history";
+        this.error = err.response?.status === 401
+          ? "Session expired"
+          : (err.message || "Failed to fetch SKU history");
       }
     },
     renderChart() {
