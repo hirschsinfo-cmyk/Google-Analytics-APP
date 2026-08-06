@@ -166,9 +166,10 @@ const formatters = {
   
   percent: (p) => {
     if (p == null || isNaN(Number(p))) return '0%'
-    // Handle decimal percentages (e.g., 0.015 -> 1.5%)
-    const percentValue = p < 1 && p > -1 ? p * 100 : p
-    return `${Number(percentValue).toFixed(1)}%`
+    // sessionConversionRate is normalized to percentage-point form
+    // (e.g. 3.4 for 3.4%) once, in Dashboard.vue's fetchAllData, so no
+    // guessing at the unit is needed here.
+    return `${Number(p).toFixed(1)}%`
   },
   
   truncate: (str, max) => {
@@ -293,15 +294,9 @@ export default {
 
     // Special handling for source values
     getSourceValue(item, col) {
-      // For conversion rate, ensure it's properly formatted
-      if (col.key === 'sessionConversionRate') {
-        // If the rate exists and is between 0-1, multiply by 100
-        const rate = item[col.key]
-        if (rate != null && !isNaN(rate) && rate < 1 && rate > -1) {
-          return rate * 100
-        }
-        return rate
-      }
+      // sessionConversionRate is already normalized to percentage-point
+      // form upstream (see Dashboard.vue fetchAllData) — no unit-guessing
+      // needed here.
       return this.getValue(item, col)
     },
 

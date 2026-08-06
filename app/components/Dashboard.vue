@@ -58,6 +58,13 @@
         :expandedKPI="expandedKPI"
         @toggleExpand="toggleExpandKPI"
       />
+
+      <!-- Sales Trend Line Chart -->
+      <SalesTrendChart
+        :seriesData="salesTrendData"
+        :granularity="salesTrendGranularity"
+        @update:granularity="changeSalesTrendGranularity"
+      />
       
     <TotalAvailableProds 
   :startDate="dateRange.startDate"
@@ -227,6 +234,7 @@ import GeographicMap from './GeographicMap.vue'
 import ChartsSection from './ChartsSection.vue'
 import DataTables from './DataTables.vue'
 import TotalAvailableProds from './TotalAvailableProds.vue'
+import SalesTrendChart from './SalesTrendChart.vue'
 import EventBreakdown from './EventBreakdown.vue'
 import LoginForm from './LoginForm.vue'
 import PageDetailsSection from './PageDetailsSection.vue'
@@ -250,6 +258,7 @@ export default {
     ChartsSection,
     DataTables,
     TotalAvailableProds,
+    SalesTrendChart,
     EventBreakdown,
     LoginForm
   },
@@ -646,8 +655,21 @@ export default {
       }
       
       const totalConversions = Math.max(totals.revenueConversions, totals.sessionConversions)
-      const avgConversionRate = avgBy(locationSessionData.value, 'sessionConversionRate')
-      const avgBasketSize = avgBy(basketSizeData.value, 'avgRevenuePerTransaction')
+
+      // Weighted, not averaged: a location with a handful of sessions and a
+      // lucky 100% conversion rate shouldn't move the headline number as
+      // much as a location with 50,000 sessions. Total conversions over
+      // total sessions is the correct site-wide rate.
+      // locationSessionData's sessionConversionRate is normalized to
+      // percentage points (e.g. 3.4) in fetchAllData below, so no further
+      // scaling is needed here.
+      const avgConversionRate = totals.sessions > 0 ? (totalConversions / totals.sessions) * 100 : 0
+
+      // Same principle for basket size: total revenue over total
+      // transactions, not an average of each country's average order value.
+      const basketTransactions = sumBy(basketSizeData.value, 'transactions')
+      const basketRevenue = sumBy(basketSizeData.value, 'purchaseRevenue')
+      const avgBasketSize = basketTransactions > 0 ? basketRevenue / basketTransactions : 0
 
       let comparisonTotals = {
         revenue: 0, transactions: 0, conversions: 0, sessions: 0, conversionRate: 0, basketSize: 0
@@ -657,15 +679,17 @@ export default {
         const compRevenueTotal = sumBy(locationRevenueComparison.value, 'purchaseRevenue')
         const compRevenueConversions = sumBy(locationRevenueComparison.value, 'conversions')
         const compSessionConversions = sumBy(locationSessionComparison.value, 'conversions')
-        const compBasketSize = avgBy(basketSizeComparison.value, 'avgRevenuePerTransaction')
+        const compSessions = sumBy(locationSessionComparison.value, 'sessions')
+        const compBasketTransactions = sumBy(basketSizeComparison.value, 'transactions')
+        const compBasketRevenue = sumBy(basketSizeComparison.value, 'purchaseRevenue')
         
         comparisonTotals = {
           revenue: compRevenueTotal,
           transactions: sumBy(locationRevenueComparison.value, 'transactions'),
           conversions: Math.max(compRevenueConversions, compSessionConversions),
-          sessions: sumBy(locationSessionComparison.value, 'sessions'),
-          conversionRate: avgBy(locationSessionComparison.value, 'sessionConversionRate'),
-          basketSize: compBasketSize
+          sessions: compSessions,
+          conversionRate: compSessions > 0 ? (compSessionConversions / compSessions) * 100 : 0,
+          basketSize: compBasketTransactions > 0 ? compBasketRevenue / compBasketTransactions : 0
         }
       }
 
@@ -955,6 +979,53 @@ export default {
       return data
     }
 
+    // ==================== SALES TREND STATE ====================
+    const salesTrendData = ref([])
+    const salesTrendGranularity = ref('day')
+
+    const fetchSalesTrend = async () => {
+      const url = new URL(`${API_BASE}/analytics/trends/timeseries`)
+      url.searchParams.append('startDate', formatDateForAPI(dateRange.startDate))
+      url.searchParams.append('endDate', formatDateForAPI(dateRange.endDate))
+      url.searchParams.append('granularity', salesTrendGranularity.value)
+
+      const res = await fetch(url, {
+        headers: { 'x-username': username.value, 'x-password': password.value }
+      })
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          handleLogout()
+          throw new Error('Session expired')
+        }
+        throw new Error('Failed to fetch sales trend')
+      }
+
+      return res.json()
+    }
+
+    const changeSalesTrendGranularity = (granularity) => {
+      salesTrendGranularity.value = granularity
+      fetchSalesTrend()
+        .then(res => { salesTrendData.value = res?.series || [] })
+        .catch(err => console.error('Failed to refetch sales trend:', err))
+    }
+
+    // GA4's Data API returns sessionConversionRate as a raw fraction
+    // (e.g. 0.034 for 3.4%), not a percentage-point number. Every part of
+    // the app that reads sessionConversionRate off locationSessionData or
+    // sourceData expects percentage-point form (matching how
+    // PageDetailsSection/CampaignDetailsSection already handle their own,
+    // separately-fetched data). Normalize once, here, so nothing downstream
+    // has to guess at the unit.
+    const normalizeConversionRate = (rows) =>
+      (rows || []).map(item => ({
+        ...item,
+        sessionConversionRate: item.sessionConversionRate != null
+          ? Number(item.sessionConversionRate) * 100
+          : item.sessionConversionRate
+      }))
+
     const fetchAllData = async () => {
       if (!isAuthenticated.value) return
       
@@ -974,7 +1045,8 @@ export default {
           engagementResponse,
           pageResponse,
           basketResponse,
-          eventResponse
+          eventResponse,
+          trendResponse
         ] = await Promise.all([
           fetchData('/analytics/conversions-by-location'),
           fetchData('/analytics/revenue-by-location'),
@@ -982,18 +1054,19 @@ export default {
           fetchData('/analytics/engagement'),
           fetchData('/analytics/page-hotspots'),
           fetchData('/analytics/basket-size'),
-          fetchData('/analytics/conversions-by-event')
+          fetchData('/analytics/conversions-by-event'),
+          fetchSalesTrend()
         ])
         
-        locationSessionComparison.value = sessionResponse.comparisonPeriod || []
+        locationSessionComparison.value = normalizeConversionRate(sessionResponse.comparisonPeriod || [])
         locationRevenueComparison.value = revenueResponse.comparisonPeriod || []
-        sourceComparison.value = sourceResponse.comparisonPeriod || []
+        sourceComparison.value = normalizeConversionRate(sourceResponse.comparisonPeriod || [])
         engagementComparison.value = engagementResponse.comparisonPeriod || []
         pageHotspotsComparison.value = pageResponse.comparisonPeriod || []
         basketSizeComparison.value = basketResponse.comparisonPeriod || []
         
         locationSessionData.value = processors.session(
-          sessionResponse.currentPeriod || [], 
+          normalizeConversionRate(sessionResponse.currentPeriod || []),
           locationSessionComparison.value
         )
         
@@ -1003,7 +1076,7 @@ export default {
         )
         
         sourceData.value = processors.source(
-          sourceResponse.currentPeriod || [], 
+          normalizeConversionRate(sourceResponse.currentPeriod || []),
           sourceComparison.value
         )
         
@@ -1024,6 +1097,8 @@ export default {
 
         eventData.value = eventResponse.currentPeriod || []
         eventComparisonData.value = eventResponse.comparisonPeriod || []
+
+        salesTrendData.value = trendResponse?.series || []
         
       } catch (error) {
         console.error('Failed to fetch analytics:', error)
@@ -1276,6 +1351,9 @@ export default {
       basketSizeComparison,
       eventData,
       eventComparisonData,
+      salesTrendData,
+      salesTrendGranularity,
+      changeSalesTrendGranularity,
       topPages,
       saCities, 
       kpiData,
