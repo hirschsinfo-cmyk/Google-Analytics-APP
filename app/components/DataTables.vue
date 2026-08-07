@@ -77,7 +77,6 @@
               <tr class="main-headers">
                 <th>Channel</th>
                 <th>Device</th>
-                <th>Campaign</th>
                 <th v-for="col in sourceColumns" :key="col.key" :colspan="enableComparison ? 2 : 1">
                   {{ col.label }}
                   <span v-if="enableComparison" class="period-badge">Value / Δ</span>
@@ -95,18 +94,6 @@
                   </span>
                 </td>
                 <td><span class="device-badge">{{ item.deviceCategory || '—' }}</span></td>
-                <td
-                  class="campaign-cell"
-                  @click.stop="toggleCampaign(item, idx)"
-                  :title="item.campaignName || '—'"
-                >
-                  <span v-if="isExpanded(item, idx)">
-                    {{ item.campaignName || '—' }} <span class="toggle-icon">−</span>
-                  </span>
-                  <span v-else>
-                    {{ truncateString(item.campaignName, 25) || '—' }} <span class="toggle-icon">+</span>
-                  </span>
-                </td>
                 <template v-for="col in sourceColumns" :key="col.key">
                   <td class="main-value">{{ formatValue(getSourceValue(item, col), col.format) }}</td>
                   <td v-if="enableComparison" class="comparison-value">
@@ -275,7 +262,7 @@ export default {
     },
 
     sourceColspan() {
-      const baseCols = 3
+      const baseCols = 2
       const metricCount = 3
       return baseCols + (this.enableComparison ? metricCount * 2 : metricCount)
     }
@@ -329,7 +316,7 @@ export default {
     },
 
     getSourceKey(item, idx) {
-      return `${item?.channel || ''}|${item?.deviceCategory || ''}|${item?.campaignName || ''}|${idx}`
+      return `${item?.channel || ''}|${item?.deviceCategory || ''}|${idx}`
     },
 
     truncateString(str, max) {

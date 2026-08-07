@@ -526,11 +526,11 @@ export default {
       
       source: (current, comparison) => {
         const comparisonMap = buildMap(comparison, item => 
-          buildCompositeKey(item.channel, item.deviceCategory, item.campaignName)
+          buildCompositeKey(item.channel, item.deviceCategory)
         )
         
         return current.map(item => {
-          const key = buildCompositeKey(item.channel, item.deviceCategory, item.campaignName)
+          const key = buildCompositeKey(item.channel, item.deviceCategory)
           const comp = comparisonMap.get(key) || {}
           
           return {
@@ -1161,9 +1161,9 @@ export default {
           ])
         ),
         ...exportSection('SOURCE ANALYSIS',
-          ['Channel', 'Device', 'Campaign', 'Sessions', 'Conversions', 'Conversion Rate'],
+          ['Channel', 'Device', 'Sessions', 'Conversions', 'Conversion Rate'],
           sourceData.value.map(item => [
-            item.channel || 'Other', item.deviceCategory || '—', item.campaignName || '—',
+            item.channel || 'Other', item.deviceCategory || '—',
             item.sessions, item.conversions, (item.sessionConversionRate / 100).toFixed(3)
           ])
         ),
