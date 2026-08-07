@@ -59,7 +59,7 @@ export default {
         : 'R0'
 
     const formatNumber = (value) =>
-      value != null && !isNaN(value) ? new Intl.NumberFormat('en-ZA').format(value) : '0'
+      value != null && !isNaN(value) ? new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 0 }).format(value) : '0'
 
     // GA4 date-dimension values arrive as raw strings: 'YYYYMMDD' for day,
     // '2026W23'-style for yearWeek, '202606' for yearMonth. Turn them into

@@ -328,7 +328,7 @@ export default {
     })
 
     // ==================== UTILITIES ====================
-    const formatNumber = v => new Intl.NumberFormat('en-ZA').format(v || 0)
+    const formatNumber = v => new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 0 }).format(v || 0)
     
     const formatDate = d => d 
       ? new Date(d).toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' }) 

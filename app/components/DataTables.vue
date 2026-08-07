@@ -77,6 +77,7 @@
               <tr class="main-headers">
                 <th>Channel</th>
                 <th>Device</th>
+                <th>Campaign</th>
                 <th v-for="col in sourceColumns" :key="col.key" :colspan="enableComparison ? 2 : 1">
                   {{ col.label }}
                   <span v-if="enableComparison" class="period-badge">Value / Δ</span>
@@ -94,6 +95,18 @@
                   </span>
                 </td>
                 <td><span class="device-badge">{{ item.deviceCategory || '—' }}</span></td>
+                <td
+                  class="campaign-cell"
+                  @click.stop="toggleCampaign(item, idx)"
+                  :title="item.campaignName || '—'"
+                >
+                  <span v-if="isExpanded(item, idx)">
+                    {{ item.campaignName || '—' }} <span class="toggle-icon">−</span>
+                  </span>
+                  <span v-else>
+                    {{ truncateString(item.campaignName, 25) || '—' }} <span class="toggle-icon">+</span>
+                  </span>
+                </td>
                 <template v-for="col in sourceColumns" :key="col.key">
                   <td class="main-value">{{ formatValue(getSourceValue(item, col), col.format) }}</td>
                   <td v-if="enableComparison" class="comparison-value">
@@ -148,7 +161,15 @@ const formatters = {
   
   number: (v) => {
     if (v == null || isNaN(Number(v))) return '0'
-    return new Intl.NumberFormat('en-ZA').format(Number(v))
+    // maximumFractionDigits: 0 -- GA4's "conversions" metric can return
+    // fractional values (e.g. 2225.303) when a property uses data-driven
+    // attribution, which splits credit for one conversion across several
+    // channels. That's expected GA4 behavior, not an error, but showing
+    // 3 decimal digits on a "count" column reads as extra digits at a
+    // glance (en-ZA formatting uses a space for thousands and a comma for
+    // the decimal point, so "2 225,303" is easy to misread as 2.2 million
+    // rather than ~2225.3). Rounding for display avoids that confusion.
+    return new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 0 }).format(Number(v))
   },
   
   percent: (p) => {
@@ -262,7 +283,7 @@ export default {
     },
 
     sourceColspan() {
-      const baseCols = 2
+      const baseCols = 3
       const metricCount = 3
       return baseCols + (this.enableComparison ? metricCount * 2 : metricCount)
     }
@@ -316,7 +337,7 @@ export default {
     },
 
     getSourceKey(item, idx) {
-      return `${item?.channel || ''}|${item?.deviceCategory || ''}|${idx}`
+      return `${item?.channel || ''}|${item?.deviceCategory || ''}|${item?.campaignName || ''}|${idx}`
     },
 
     truncateString(str, max) {

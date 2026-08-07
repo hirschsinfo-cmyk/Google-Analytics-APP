@@ -96,7 +96,7 @@ export default {
         : 'R0'
 
     const formatNumber = (value) =>
-      value && !isNaN(value) ? new Intl.NumberFormat('en-ZA').format(value) : '0'
+      value && !isNaN(value) ? new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 0 }).format(value) : '0'
 
     const formatDelta = (delta) => {
       if (delta === null || delta === undefined || isNaN(delta)) return '—'

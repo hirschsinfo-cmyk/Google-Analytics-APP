@@ -381,7 +381,7 @@ export default {
         },
         number: (value) => {
           if (value == null || isNaN(value)) return '0'
-          return new Intl.NumberFormat('en-ZA').format(value)
+          return new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 0 }).format(value)
         },
         percent: (value) => {
           if (value == null || isNaN(value)) return '0%'
@@ -526,11 +526,11 @@ export default {
       
       source: (current, comparison) => {
         const comparisonMap = buildMap(comparison, item => 
-          buildCompositeKey(item.channel, item.deviceCategory)
+          buildCompositeKey(item.channel, item.deviceCategory, item.campaignName)
         )
         
         return current.map(item => {
-          const key = buildCompositeKey(item.channel, item.deviceCategory)
+          const key = buildCompositeKey(item.channel, item.deviceCategory, item.campaignName)
           const comp = comparisonMap.get(key) || {}
           
           return {
@@ -1161,9 +1161,9 @@ export default {
           ])
         ),
         ...exportSection('SOURCE ANALYSIS',
-          ['Channel', 'Device', 'Sessions', 'Conversions', 'Conversion Rate'],
+          ['Channel', 'Device', 'Campaign', 'Sessions', 'Conversions', 'Conversion Rate'],
           sourceData.value.map(item => [
-            item.channel || 'Other', item.deviceCategory || '—',
+            item.channel || 'Other', item.deviceCategory || '—', item.campaignName || '—',
             item.sessions, item.conversions, (item.sessionConversionRate / 100).toFixed(3)
           ])
         ),

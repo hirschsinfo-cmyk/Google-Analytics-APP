@@ -316,7 +316,7 @@ export default {
 
     // Utilities
     const formatNumber = (value) =>
-      value == null || isNaN(value) ? '0' : new Intl.NumberFormat('en-ZA').format(value);
+      value == null || isNaN(value) ? '0' : new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 0 }).format(value);
 
     const formatPercentage = (value) => {
       if (value == null || isNaN(value)) return '0%';

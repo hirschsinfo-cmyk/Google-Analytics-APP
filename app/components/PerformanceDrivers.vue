@@ -233,7 +233,7 @@ export default {
 
     const formatNumber = (value) => {
       if (value == null || isNaN(value)) return '0'
-      return new Intl.NumberFormat('en-ZA').format(value)
+      return new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 0 }).format(value)
     }
 
     const formatDelta = (delta) => {
