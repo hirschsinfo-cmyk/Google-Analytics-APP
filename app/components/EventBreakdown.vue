@@ -87,7 +87,7 @@
           <!-- Header -->
           <div class="event-header" @click="toggleEventExpand(event.eventName)">
             <h3 class="event-name">{{ formatEventName(event.eventName) }}</h3>
-            <span class="event-percentage">{{ event.percentage }}%</span>
+            <span class="event-percentage">{{ formatShare(event.percentage) }}%</span>
           </div>
 
           <!-- Stats -->
@@ -98,7 +98,7 @@
             </div>
             <div class="stat-item">
               <span class="stat-label">Share</span>
-              <span class="stat-value">{{ event.percentage }}%</span>
+              <span class="stat-value">{{ formatShare(event.percentage) }}%</span>
             </div>
           </div>
 
@@ -129,7 +129,7 @@
               </div>
               <div class="comparison-item">
                 <span class="comparison-label">Comparison Share:</span>
-                <span class="comparison-value">{{ getComparisonEvent(event).percentage }}%</span>
+                <span class="comparison-value">{{ formatShare(getComparisonEvent(event).percentage) }}%</span>
               </div>
             </template>
             <div v-else class="no-comparison">
@@ -149,7 +149,7 @@
             </div>
             <div class="expanded-row">
               <span class="expanded-label">Percentage:</span>
-              <span class="expanded-value">{{ event.percentage }}%</span>
+              <span class="expanded-value">{{ formatShare(event.percentage) }}%</span>
             </div>
             <div v-if="showComparison && getComparisonEvent(event)" class="expanded-row">
               <span class="expanded-label">Comparison Count:</span>
@@ -157,7 +157,7 @@
             </div>
             <div v-if="showComparison && getComparisonEvent(event)" class="expanded-row">
               <span class="expanded-label">Comparison %:</span>
-              <span class="expanded-value">{{ getComparisonEvent(event).percentage }}%</span>
+              <span class="expanded-value">{{ formatShare(getComparisonEvent(event).percentage) }}%</span>
             </div>
             <div v-if="showComparison && getComparisonEvent(event)" class="expanded-row">
               <span class="expanded-label">Change:</span>
@@ -329,6 +329,10 @@ export default {
 
     // ==================== UTILITIES ====================
     const formatNumber = v => new Intl.NumberFormat('en-ZA', { maximumFractionDigits: 0 }).format(v || 0)
+    // Share is (count / total) * 100 from the backend, unrounded -- can
+    // come through as something like 1.723957...%. Round to 1 decimal
+    // for display.
+    const formatShare = p => p == null || isNaN(p) ? '0' : Number(p).toFixed(1)
     
     const formatDate = d => d 
       ? new Date(d).toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' }) 
@@ -402,7 +406,7 @@ export default {
       filteredEvents, sortedFilteredEvents, paginatedEvents, totalPages,
       topEventName,
       // Utilities
-      formatNumber, formatDate, formatEventName, formatDelta,
+      formatNumber, formatShare, formatDate, formatEventName, formatDelta,
       getDeltaClass, getEventClass, getComparisonEvent, getEventDelta,
       // Actions
       toggleExpand, toggleEventExpand, toggleComparison, calculateDelta
