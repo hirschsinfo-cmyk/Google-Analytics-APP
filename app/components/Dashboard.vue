@@ -1038,16 +1038,13 @@ export default {
       expandedCity.value = null
       
       try {
-        const [
-          sessionResponse, 
-          revenueResponse, 
-          sourceResponse,
-          engagementResponse,
-          pageResponse,
-          basketResponse,
-          eventResponse,
-          trendResponse
-        ] = await Promise.all([
+        // Promise.allSettled, not Promise.all: with eight independent
+        // endpoints, one failing (e.g. conversions-by-event erroring on a
+        // wide date range) must not zero out every other card on the
+        // dashboard. Promise.all rejects the whole batch on a single
+        // failure, which is why the entire dashboard was showing 0/— even
+        // though several endpoints were returning good data individually.
+        const results = await Promise.allSettled([
           fetchData('/analytics/conversions-by-location'),
           fetchData('/analytics/revenue-by-location'),
           fetchData('/analytics/conversions-by-source'),
@@ -1057,7 +1054,32 @@ export default {
           fetchData('/analytics/conversions-by-event'),
           fetchSalesTrend()
         ])
-        
+
+        const labels = [
+          'conversions-by-location', 'revenue-by-location', 'conversions-by-source',
+          'engagement', 'page-hotspots', 'basket-size', 'conversions-by-event', 'sales-trend'
+        ]
+
+        const [
+          sessionResult, revenueResult, sourceResult, engagementResult,
+          pageResult, basketResult, eventResult, trendResult
+        ] = results
+
+        results.forEach((r, i) => {
+          if (r.status === 'rejected') {
+            console.error(`Failed to fetch ${labels[i]}:`, r.reason)
+          }
+        })
+
+        const sessionResponse = sessionResult.status === 'fulfilled' ? sessionResult.value : {}
+        const revenueResponse = revenueResult.status === 'fulfilled' ? revenueResult.value : {}
+        const sourceResponse = sourceResult.status === 'fulfilled' ? sourceResult.value : {}
+        const engagementResponse = engagementResult.status === 'fulfilled' ? engagementResult.value : {}
+        const pageResponse = pageResult.status === 'fulfilled' ? pageResult.value : {}
+        const basketResponse = basketResult.status === 'fulfilled' ? basketResult.value : {}
+        const eventResponse = eventResult.status === 'fulfilled' ? eventResult.value : {}
+        const trendResponse = trendResult.status === 'fulfilled' ? trendResult.value : {}
+
         locationSessionComparison.value = normalizeConversionRate(sessionResponse.comparisonPeriod || [])
         locationRevenueComparison.value = revenueResponse.comparisonPeriod || []
         sourceComparison.value = normalizeConversionRate(sourceResponse.comparisonPeriod || [])
