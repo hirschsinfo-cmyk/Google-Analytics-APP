@@ -705,11 +705,13 @@ export default {
           formatter: formatNumber, icon: 'visibility', color: '#f59e0b' },
         { label: 'Conversions', value: totalConversions, rawValue: totalConversions,
           compValue: comparisonTotals.conversions, rawComparison: comparisonTotals.conversions,
-          formatter: formatNumber, icon: 'conversion_path', color: '#8b5cf6' },
+          formatter: formatNumber, icon: 'conversion_path', color: '#8b5cf6',
+          tooltip: 'Counts all GA4 key events (e.g. add to cart, view item), not just purchases' },
         { label: 'Avg. Conv. Rate', value: avgConversionRate, rawValue: avgConversionRate,
           compValue: comparisonTotals.conversionRate, rawComparison: comparisonTotals.conversionRate,
-          formatter: formatPercent, icon: 'percent', color: '#ec4899' },
-        { label: 'Avg. Basket Size', value: avgBasketSize, rawValue: avgBasketSize,
+          formatter: formatPercent, icon: 'percent', color: '#ec4899',
+          tooltip: 'Based on all key events, not just purchases -- can exceed 100% if a session triggers multiple key events' },
+        { label: 'Avg. Order Value', value: avgBasketSize, rawValue: avgBasketSize,
           compValue: comparisonTotals.basketSize, rawComparison: comparisonTotals.basketSize,
           formatter: formatZAR, icon: 'shopping_basket', color: '#f97316' }
       ]

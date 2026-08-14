@@ -18,6 +18,11 @@
           </span>
         </div>
         <span class="kpi-label">{{ kpi.label }}</span>
+        <span
+          v-if="kpi.tooltip"
+          class="material-symbols-outlined kpi-info"
+          :title="kpi.tooltip"
+        >info</span>
       </div>
 
       <div class="kpi-value-container">
@@ -134,6 +139,17 @@ export default {
   transform: translateY(-2px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02);
   border-color: #e8e8e8;
+}
+
+.kpi-info {
+  font-size: 1rem;
+  color: var(--gray-400);
+  cursor: help;
+  margin-left: -4px;
+}
+
+.kpi-info:hover {
+  color: var(--gray-600);
 }
 
 .kpi-card.expanded {

@@ -36,6 +36,7 @@
                   v-for="col in currentLocationColumns"
                   :key="col.key"
                   :colspan="enableComparison ? 2 : 1"
+                  :title="col.tooltip"
                 >
                   {{ col.label }}
                   <span v-if="enableComparison" class="period-badge">Value / Δ</span>
@@ -78,7 +79,7 @@
                 <th>Channel</th>
                 <th>Device</th>
                 <th>Campaign</th>
-                <th v-for="col in sourceColumns" :key="col.key" :colspan="enableComparison ? 2 : 1">
+                <th v-for="col in sourceColumns" :key="col.key" :colspan="enableComparison ? 2 : 1" :title="col.tooltip">
                   {{ col.label }}
                   <span v-if="enableComparison" class="period-badge">Value / Δ</span>
                 </th>
@@ -193,11 +194,14 @@ const formatters = {
 }
 
 // ==================== COLUMN DEFINITIONS ====================
+const CONVERSIONS_TOOLTIP = 'Counts all GA4 key events (e.g. add to cart, view item), not just purchases'
+const CONV_RATE_TOOLTIP = 'Based on all key events, not just purchases -- can exceed 100% if a session triggers multiple key events'
+
 const COLUMNS = {
   session: [
     { key: 'sessions', label: 'Sessions', format: 'number', deltaKey: 'sessionsDelta' },
-    { key: 'conversions', label: 'Conversions', format: 'number', deltaKey: 'conversionsDelta' },
-    { key: 'sessionConversionRate', label: 'Conv. Rate', format: 'percent', deltaKey: 'conversionRateDelta' },
+    { key: 'conversions', label: 'Conversions', format: 'number', deltaKey: 'conversionsDelta', tooltip: CONVERSIONS_TOOLTIP },
+    { key: 'sessionConversionRate', label: 'Conv. Rate', format: 'percent', deltaKey: 'conversionRateDelta', tooltip: CONV_RATE_TOOLTIP },
     { key: 'activeUsers', label: 'Active Users', format: 'number', deltaKey: 'activeUsersDelta' },
     { key: 'newUsers', label: 'New Users', format: 'number', deltaKey: 'newUsersDelta' }
   ],
@@ -205,17 +209,18 @@ const COLUMNS = {
   revenue: [
     { key: 'purchaseRevenue', label: 'Revenue (ZAR)', format: 'ZAR', deltaKey: 'revenueDelta' },
     { key: 'transactions', label: 'Transactions', format: 'number', deltaKey: 'transactionsDelta' },
-    { key: 'conversions', label: 'Conversions', format: 'number', deltaKey: 'conversionsDelta' }
+    { key: 'conversions', label: 'Conversions', format: 'number', deltaKey: 'conversionsDelta', tooltip: CONVERSIONS_TOOLTIP }
   ],
   
   source: [
     { key: 'sessions', label: 'Sessions', format: 'number', deltaKey: 'sessionsDelta' },
-    { key: 'conversions', label: 'Conversions', format: 'number', deltaKey: 'conversionsDelta' },
+    { key: 'conversions', label: 'Conversions', format: 'number', deltaKey: 'conversionsDelta', tooltip: CONVERSIONS_TOOLTIP },
     { 
       key: 'sessionConversionRate', 
       label: 'Conv. Rate', 
       format: 'percent', 
       deltaKey: 'conversionRateDelta',
+      tooltip: CONV_RATE_TOOLTIP,
       // If the rate isn't pre-calculated, compute it from sessions and conversions
       compute: (item) => item.conversions && item.sessions ? 
                (item.conversions / item.sessions) * 100 : 0
