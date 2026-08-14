@@ -2,7 +2,7 @@
   <div class="customer-type-section">
     <!-- Header with Comparison Badge -->
     <div class="section-header">
-      <h2>👥 Customer Type Breakdown</h2>
+      <h2>👥 New vs Returning Visitors</h2>
       <div v-if="enableComparison && hasComparisonData" class="comparison-badge">
         vs {{ formatDateRange(comparisonStartDate, comparisonEndDate) }}
       </div>
@@ -17,10 +17,10 @@
       <div class="period-container current">
         <h3 class="period-title">Current Period</h3>
         
-        <!-- New Customers -->
+        <!-- New Visitors -->
         <div class="customer-segment new">
           <div class="segment-header">
-            <span class="segment-label">New Customers</span>
+            <span class="segment-label">New Visitors</span>
             <span class="segment-value">{{ formatNumber(newUsers) }}</span>
           </div>
           <div class="segment-stats">
@@ -35,10 +35,10 @@
           </div>
         </div>
 
-        <!-- Returning Customers -->
+        <!-- Returning Visitors -->
         <div class="customer-segment returning">
           <div class="segment-header">
-            <span class="segment-label">Returning Customers</span>
+            <span class="segment-label">Returning Visitors</span>
             <span class="segment-value">{{ formatNumber(returningUsers) }}</span>
           </div>
           <div class="segment-stats">
@@ -58,7 +58,7 @@
           <div
             class="bar-segment new"
             :style="{ width: newCustomerPercent + '%' }"
-            :aria-label="`New Customers: ${newCustomerPercent.toFixed(1)}%`"
+            :aria-label="`New Visitors: ${newCustomerPercent.toFixed(1)}%`"
           >
             <span class="bar-label" v-if="newCustomerPercent > 10">
               New {{ newCustomerPercent.toFixed(1) }}%
@@ -67,7 +67,7 @@
           <div
             class="bar-segment returning"
             :style="{ width: returningCustomerPercent + '%' }"
-            :aria-label="`Returning Customers: ${returningCustomerPercent.toFixed(1)}%`"
+            :aria-label="`Returning Visitors: ${returningCustomerPercent.toFixed(1)}%`"
           >
             <span class="bar-label" v-if="returningCustomerPercent > 10">
               Returning {{ returningCustomerPercent.toFixed(1) }}%
@@ -93,10 +93,10 @@
         </button>
 
         <div v-if="showComparison" class="period-content">
-          <!-- New Customers Comparison -->
+          <!-- New Visitors Comparison -->
           <div class="customer-segment new comparison">
             <div class="segment-header">
-              <span class="segment-label">New Customers</span>
+              <span class="segment-label">New Visitors</span>
               <span class="segment-value">{{ formatNumber(prevNewUsers) }}</span>
             </div>
             <div class="segment-stats">
@@ -107,10 +107,10 @@
             </div>
           </div>
 
-          <!-- Returning Customers Comparison -->
+          <!-- Returning Visitors Comparison -->
           <div class="customer-segment returning comparison">
             <div class="segment-header">
-              <span class="segment-label">Returning Customers</span>
+              <span class="segment-label">Returning Visitors</span>
               <span class="segment-value">{{ formatNumber(prevReturningUsers) }}</span>
             </div>
             <div class="segment-stats">
@@ -126,7 +126,7 @@
             <div
               class="bar-segment new"
               :style="{ width: prevNewCustomerPercent + '%' }"
-              :aria-label="`Comparison New Customers: ${prevNewCustomerPercent.toFixed(1)}%`"
+              :aria-label="`Comparison New Visitors: ${prevNewCustomerPercent.toFixed(1)}%`"
             >
               <span class="bar-label" v-if="prevNewCustomerPercent > 10">
                 New {{ prevNewCustomerPercent.toFixed(1) }}%
@@ -135,7 +135,7 @@
             <div
               class="bar-segment returning"
               :style="{ width: prevReturningCustomerPercent + '%' }"
-              :aria-label="`Comparison Returning Customers: ${prevReturningCustomerPercent.toFixed(1)}%`"
+              :aria-label="`Comparison Returning Visitors: ${prevReturningCustomerPercent.toFixed(1)}%`"
             >
               <span class="bar-label" v-if="prevReturningCustomerPercent > 10">
                 Returning {{ prevReturningCustomerPercent.toFixed(1) }}%
