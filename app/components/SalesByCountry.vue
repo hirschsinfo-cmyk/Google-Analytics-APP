@@ -41,7 +41,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in sortedCountries" :key="row.country">
+          <tr v-for="row in visibleCountries" :key="row.country">
             <td class="country-name">{{ row.country || 'Unknown' }}</td>
             <td>{{ formatZAR(row.purchaseRevenue) }}</td>
             <td>{{ formatNumber(row.transactions) }}</td>
@@ -63,6 +63,14 @@
           </tr>
         </tfoot>
       </table>
+
+      <button
+        v-if="sortedCountries.length > collapsedLimit"
+        class="view-more-btn"
+        @click="showAll = !showAll"
+      >
+        {{ showAll ? 'View less' : `View more (${sortedCountries.length - collapsedLimit} more)` }}
+      </button>
     </div>
   </div>
 </template>
@@ -89,6 +97,10 @@ export default {
 
     const sortKey = ref('purchaseRevenue')
     const sortDir = ref('desc')
+
+    // How many rows to show before the user has to click "View more".
+    const collapsedLimit = 8
+    const showAll = ref(false)
 
     const columns = [
       { key: 'country', label: 'Country' },
@@ -172,9 +184,14 @@ export default {
       return list
     })
 
+    const visibleCountries = computed(() =>
+      showAll.value ? sortedCountries.value : sortedCountries.value.slice(0, collapsedLimit)
+    )
+
     const fetchSalesByCountry = async () => {
       loading.value = true
       error.value = null
+      showAll.value = false
 
       try {
         const username = localStorage.getItem('username') || ''
@@ -225,6 +242,9 @@ export default {
       error,
       countries,
       sortedCountries,
+      visibleCountries,
+      showAll,
+      collapsedLimit,
       totals,
       columns,
       sortKey,
@@ -348,6 +368,26 @@ export default {
   padding-top: var(--space-4);
 }
 
+.view-more-btn {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  color: var(--primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.view-more-btn:hover {
+  background: var(--gray-100);
+  border-color: var(--primary);
+}
+
 .positive { color: var(--success); font-weight: 600; }
 .negative { color: var(--danger); font-weight: 600; }
 .neutral { color: var(--gray-500); font-weight: 600; }
@@ -359,6 +399,7 @@ export default {
   .country-table th,
   .country-table td {
     padding: var(--space-2) var(--space-3);
+    
   }
 }
 </style>
