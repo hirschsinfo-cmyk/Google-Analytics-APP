@@ -187,6 +187,13 @@
         @resetHighlight="resetHighlight"
       />
 
+      <SalesByCountry
+  :startDate="dateRange.startDate"
+  :endDate="dateRange.endDate"
+  :enableComparison="enableComparison"
+  :comparisonStartDate="comparisonRange.startDate"
+  :comparisonEndDate="comparisonRange.endDate"
+/>
       <!-- Charts Section Component -->
       <ChartsSection
         :locationRevenueData="locationRevenueData"
@@ -239,6 +246,7 @@ import EventBreakdown from './EventBreakdown.vue'
 import LoginForm from './LoginForm.vue'
 import PageDetailsSection from './PageDetailsSection.vue'
 import CampaignDetailsSection from './CampaignDetailsSection.vue'
+import SalesByCountry from './SalesByCountry.vue'
 
 export default {
   name: 'Dashboard',
