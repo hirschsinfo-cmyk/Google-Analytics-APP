@@ -268,7 +268,8 @@ export default {
     TotalAvailableProds,
     SalesTrendChart,
     EventBreakdown,
-    LoginForm
+    LoginForm, 
+    SalesByCountry
   },
   setup() {
     // ==================== AUTHENTICATION STATE ====================
